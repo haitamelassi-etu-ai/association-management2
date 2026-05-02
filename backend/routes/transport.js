@@ -10,7 +10,10 @@ const {
   addMaintenance,
   deleteMaintenance,
   getStats,
-  getMaintenanceHistory
+  getMaintenanceHistory,
+  getMouchard,
+  addMouchard,
+  deleteMouchard,
 } = require('../controllers/transportController');
 
 router.use(protect);
@@ -29,5 +32,9 @@ router.route('/:id')
 
 router.post('/:id/entretien', addMaintenance);
 router.delete('/:id/entretien/:entretienId', deleteMaintenance);
+
+router.get('/:id/mouchard', getMouchard);
+router.post('/:id/mouchard', addMouchard);
+router.delete('/:id/mouchard/:logId', deleteMouchard);
 
 module.exports = router;

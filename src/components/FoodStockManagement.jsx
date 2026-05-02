@@ -20,6 +20,7 @@ const FoodStockManagement = () => {
   const [filters, setFilters] = useState({
     statut: '',
     categorie: '',
+    type: '',
     search: ''
   });
 
@@ -38,6 +39,8 @@ const FoodStockManagement = () => {
   const [formData, setFormData] = useState({
     nom: '',
     categorie: 'fruits-legumes',
+    type: 'alimentaire',
+    etat: 'bon',
     quantite: 0,
     unite: 'kg',
     prix: 0,
@@ -782,6 +785,7 @@ const FoodStockManagement = () => {
       const params = new URLSearchParams();
       if (filters.statut) params.append('statut', filters.statut);
       if (filters.categorie) params.append('categorie', filters.categorie);
+      if (filters.type) params.append('type', filters.type);
       if (filters.search) params.append('search', filters.search);
 
       const [itemsRes, statsRes, alertsRes] = await Promise.all([
@@ -1666,6 +1670,16 @@ const FoodStockManagement = () => {
           <option value="faible">Faible</option>
           <option value="critique">Critique</option>
           <option value="expire">Expiré</option>
+        </select>
+
+        <select
+          value={filters.type}
+          onChange={(e) => setFilters({ ...filters, type: e.target.value })}
+          className="filter-select"
+        >
+          <option value="">🏷️ Tous les types</option>
+          <option value="alimentaire">🍎 Alimentaire</option>
+          <option value="medical">🏥 Médical</option>
         </select>
 
         <select
@@ -2666,6 +2680,25 @@ const FoodStockManagement = () => {
             </div>
             <form onSubmit={handleAdd} className="stock-form">
               <div className="form-grid">
+                <div className="form-group">
+                  <label>Type *</label>
+                  <select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })}>
+                    <option value="alimentaire">🍎 Alimentaire</option>
+                    <option value="medical">🏥 Matériel médical</option>
+                  </select>
+                </div>
+
+                {formData.type === 'medical' && (
+                  <div className="form-group">
+                    <label>État</label>
+                    <select value={formData.etat} onChange={(e) => setFormData({ ...formData, etat: e.target.value })}>
+                      <option value="bon">✅ Bon état</option>
+                      <option value="endommage">⚠️ Endommagé</option>
+                      <option value="hors_service">❌ Hors service</option>
+                    </select>
+                  </div>
+                )}
+
                 <div className="form-group">
                   <label>Code-barres</label>
                   <input

@@ -53,6 +53,17 @@ const foodStockSchema = new mongoose.Schema({
     required: [true, 'Le seuil critique est obligatoire'],
     min: [0, 'Le seuil critique ne peut pas être négatif']
   },
+  type: {
+    type: String,
+    enum: ['alimentaire', 'medical'],
+    default: 'alimentaire',
+    index: true
+  },
+  etat: {
+    type: String,
+    enum: ['bon', 'endommage', 'hors_service'],
+    default: 'bon'
+  },
   fournisseur: {
     type: String,
     trim: true

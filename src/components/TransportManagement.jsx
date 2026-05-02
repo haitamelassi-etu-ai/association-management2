@@ -7,41 +7,42 @@ import './TransportManagement.css'
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const ENTRETIEN_TYPES = [
-  { value: 'vidange',           label: 'Vidange',             icon: '🛢️' },
-  { value: 'pneus',             label: 'Pneus',               icon: '🔄' },
-  { value: 'reparation',        label: 'Réparation',          icon: '🔧' },
-  { value: 'revision',          label: 'Révision générale',   icon: '🔍' },
-  { value: 'controle_technique',label: 'Contrôle technique',  icon: '📋' },
-  { value: 'nettoyage',         label: 'Nettoyage',           icon: '🧹' },
-  { value: 'carburant',         label: 'Carburant',           icon: '⛽' },
-  { value: 'autre',             label: 'Autre',               icon: '⚙️' },
+  { value: 'vidange',            label: 'Vidange',             icon: '🛢️' },
+  { value: 'pneus',              label: 'Pneus',               icon: '🔄' },
+  { value: 'reparation',         label: 'Réparation',          icon: '🔧' },
+  { value: 'revision',           label: 'Révision générale',   icon: '🔍' },
+  { value: 'controle_technique', label: 'Contrôle technique',  icon: '📋' },
+  { value: 'nettoyage',          label: 'Nettoyage',           icon: '🧹' },
+  { value: 'carburant',          label: 'Carburant',           icon: '⛽' },
+  { value: 'autre',              label: 'Autre',               icon: '⚙️' },
 ]
 
 const STATUT_CONFIG = {
-  actif:       { label: 'Actif',           cls: 'badge-actif',       icon: '✅' },
-  maintenance: { label: 'En maintenance',  cls: 'badge-maintenance', icon: '🔧' },
-  inactif:     { label: 'Inactif',         cls: 'badge-inactif',     icon: '⛔' },
+  actif:       { label: 'Actif',          cls: 'badge-actif',       icon: '✅' },
+  maintenance: { label: 'En maintenance', cls: 'badge-maintenance', icon: '🔧' },
+  inactif:     { label: 'Inactif',        cls: 'badge-inactif',     icon: '⛔' },
 }
 
 const getToken = () => {
   const t = localStorage.getItem('professionalToken')
   if (t) return t
-  try {
-    const u = JSON.parse(localStorage.getItem('professionalUser') || '{}')
-    return u.token || ''
-  } catch { return '' }
+  try { return JSON.parse(localStorage.getItem('professionalUser') || '{}').token || '' }
+  catch { return '' }
 }
-
 const authHeader = () => ({ Authorization: `Bearer ${getToken()}` })
 
-const fmt = (d) => d ? new Date(d).toLocaleDateString('fr-FR') : '—'
+const fmt    = (d) => d ? new Date(d).toLocaleDateString('fr-FR') : '—'
+const fmtDT  = (d) => d ? new Date(d).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '—'
 const fmtMoney = (n) => n != null ? `${Number(n).toLocaleString('fr-FR')} DH` : '—'
 
 const EMPTY_BUS = {
   matricule: '', marque: '', modele: '', annee: new Date().getFullYear(),
   capacite: 20, couleur: '', statut: 'actif',
   chauffeur: { nom: '', telephone: '', permis: '' },
-  kilometrage: 0, assuranceExpiration: '', controleExpiration: '', notes: ''
+  kilometrage: 0,
+  assuranceExpiration: '', controleExpiration: '',
+  carteGriseNumero: '', dateMiseEnCirculation: '', dateExpirationCarteGrise: '',
+  notes: ''
 }
 
 const EMPTY_MAINTENANCE = {
@@ -50,38 +51,44 @@ const EMPTY_MAINTENANCE = {
   cout: '', kilometrage: '', prestataire: '', notes: ''
 }
 
+const EMPTY_MOUCHARD = {
+  busId: '', dateDepart: new Date().toISOString().slice(0, 16),
+  dateRetour: '', destination: '', conducteur: '',
+  kilometrageDepart: '', kilometrageRetour: '', commentaire: ''
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function TransportManagement() {
-  // Data
-  const [buses, setBuses]               = useState([])
-  const [stats, setStats]               = useState(null)
-  const [history, setHistory]           = useState([])
-  const [loading, setLoading]           = useState(true)
-  const [histLoading, setHistLoading]   = useState(false)
+  const [buses, setBuses]             = useState([])
+  const [stats, setStats]             = useState(null)
+  const [history, setHistory]         = useState([])
+  const [mouchard, setMouchard]       = useState([])
+  const [loading, setLoading]         = useState(true)
+  const [histLoading, setHistLoading] = useState(false)
+  const [mouchLoading, setMouchLoading] = useState(false)
 
-  // UI
-  const [activeTab, setActiveTab]       = useState('vehicles')
-  const [sortField, setSortField]       = useState('createdAt')
-  const [sortDir, setSortDir]           = useState('desc')
+  const [activeTab, setActiveTab] = useState('vehicles')
+  const [sortField, setSortField] = useState('createdAt')
+  const [sortDir, setSortDir]     = useState('desc')
 
-  // Filters
-  const [busFilters, setBusFilters]     = useState({ search: '', statut: '' })
-  const [histFilters, setHistFilters]   = useState({ busId: '', type: '', dateFrom: '', dateTo: '' })
+  const [busFilters, setBusFilters]   = useState({ search: '', statut: '' })
+  const [histFilters, setHistFilters] = useState({ busId: '', type: '', dateFrom: '', dateTo: '' })
+  const [mouchFilter, setMouchFilter] = useState({ busId: '' })
 
-  // Modals
-  const [busModal, setBusModal]         = useState({ open: false, editing: null })
-  const [maintModal, setMaintModal]     = useState({ open: false, busId: null, busLabel: '' })
-  const [detailModal, setDetailModal]   = useState({ open: false, bus: null })
-  const [deleteConfirm, setDeleteConfirm] = useState({ open: false, id: null, label: '' })
+  const [busModal,       setBusModal]       = useState({ open: false, editing: null })
+  const [maintModal,     setMaintModal]     = useState({ open: false, busId: null, busLabel: '' })
+  const [detailModal,    setDetailModal]    = useState({ open: false, bus: null })
+  const [mouchModal,     setMouchModal]     = useState({ open: false, busId: null, busLabel: '' })
+  const [deleteConfirm,  setDeleteConfirm]  = useState({ open: false, id: null, label: '' })
 
-  // Forms
-  const [busForm, setBusForm]           = useState(EMPTY_BUS)
-  const [maintForm, setMaintForm]       = useState(EMPTY_MAINTENANCE)
-  const [saving, setSaving]             = useState(false)
-  const [error, setError]               = useState('')
+  const [busForm,   setBusForm]   = useState(EMPTY_BUS)
+  const [maintForm, setMaintForm] = useState(EMPTY_MAINTENANCE)
+  const [mouchForm, setMouchForm] = useState(EMPTY_MOUCHARD)
+  const [saving, setSaving]       = useState(false)
+  const [error, setError]         = useState('')
 
-  // ─── Data fetching ──────────────────────────────────────────────────────────
+  // ─── Fetch ─────────────────────────────────────────────────────────────────
 
   const fetchBuses = useCallback(async () => {
     setLoading(true)
@@ -91,11 +98,8 @@ export default function TransportManagement() {
       if (busFilters.statut) params.statut = busFilters.statut
       const { data } = await axios.get(`${API_URL}/transport`, { params, headers: authHeader() })
       setBuses(data.data || [])
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setLoading(false)
-    }
+    } catch (e) { console.error(e) }
+    finally { setLoading(false) }
   }, [busFilters])
 
   const fetchStats = useCallback(async () => {
@@ -113,16 +117,37 @@ export default function TransportManagement() {
       if (histFilters.type)    params.type     = histFilters.type
       if (histFilters.dateFrom) params.dateFrom = histFilters.dateFrom
       if (histFilters.dateTo)   params.dateTo   = histFilters.dateTo
-      const { data } = await axios.get(`${API_URL}/transport/maintenance/history`, {
-        params, headers: authHeader()
-      })
+      const { data } = await axios.get(`${API_URL}/transport/maintenance/history`, { params, headers: authHeader() })
       setHistory(data.data || [])
     } catch (e) { console.error(e) }
     finally { setHistLoading(false) }
   }, [histFilters])
 
+  const fetchMouchard = useCallback(async () => {
+    setMouchLoading(true)
+    try {
+      if (mouchFilter.busId) {
+        const { data } = await axios.get(`${API_URL}/transport/${mouchFilter.busId}/mouchard`, { headers: authHeader() })
+        setMouchard(data.data || [])
+      } else {
+        // Fetch all buses' mouchard and flatten
+        const all = []
+        for (const b of buses) {
+          try {
+            const { data } = await axios.get(`${API_URL}/transport/${b._id}/mouchard`, { headers: authHeader() })
+            ;(data.data || []).forEach(m => all.push({ ...m, bus: { _id: b._id, matricule: b.matricule, marque: b.marque } }))
+          } catch {}
+        }
+        all.sort((a, b) => new Date(b.dateDepart) - new Date(a.dateDepart))
+        setMouchard(all)
+      }
+    } catch (e) { console.error(e) }
+    finally { setMouchLoading(false) }
+  }, [mouchFilter, buses])
+
   useEffect(() => { fetchBuses(); fetchStats() }, [fetchBuses, fetchStats])
   useEffect(() => { if (activeTab === 'maintenance') fetchHistory() }, [activeTab, fetchHistory])
+  useEffect(() => { if (activeTab === 'mouchard' && buses.length > 0) fetchMouchard() }, [activeTab, fetchMouchard, buses])
 
   // ─── Sorting ────────────────────────────────────────────────────────────────
 
@@ -148,11 +173,7 @@ export default function TransportManagement() {
 
   // ─── Bus CRUD ────────────────────────────────────────────────────────────────
 
-  const openAddBus = () => {
-    setBusForm(EMPTY_BUS)
-    setBusModal({ open: true, editing: null })
-    setError('')
-  }
+  const openAddBus = () => { setBusForm(EMPTY_BUS); setBusModal({ open: false, editing: null }); setError(''); setBusModal({ open: true, editing: null }) }
 
   const openEditBus = (bus) => {
     setBusForm({
@@ -165,8 +186,11 @@ export default function TransportManagement() {
       statut: bus.statut,
       chauffeur: { nom: bus.chauffeur?.nom || '', telephone: bus.chauffeur?.telephone || '', permis: bus.chauffeur?.permis || '' },
       kilometrage: bus.kilometrage || 0,
-      assuranceExpiration: bus.assuranceExpiration ? bus.assuranceExpiration.split('T')[0] : '',
-      controleExpiration: bus.controleExpiration ? bus.controleExpiration.split('T')[0] : '',
+      assuranceExpiration:    bus.assuranceExpiration    ? bus.assuranceExpiration.split('T')[0]    : '',
+      controleExpiration:     bus.controleExpiration     ? bus.controleExpiration.split('T')[0]     : '',
+      carteGriseNumero:       bus.carteGriseNumero       || '',
+      dateMiseEnCirculation:  bus.dateMiseEnCirculation  ? bus.dateMiseEnCirculation.split('T')[0]  : '',
+      dateExpirationCarteGrise: bus.dateExpirationCarteGrise ? bus.dateExpirationCarteGrise.split('T')[0] : '',
       notes: bus.notes || ''
     })
     setBusModal({ open: true, editing: bus._id })
@@ -198,12 +222,8 @@ export default function TransportManagement() {
       setDeleteConfirm({ open: false, id: null, label: '' })
       if (detailModal.bus?._id === deleteConfirm.id) setDetailModal({ open: false, bus: null })
       fetchBuses(); fetchStats()
-    } catch (e) {
-      alert(e.response?.data?.message || 'Erreur lors de la suppression')
-    }
+    } catch (e) { alert(e.response?.data?.message || 'Erreur lors de la suppression') }
   }
-
-  // ─── Detail modal ────────────────────────────────────────────────────────────
 
   const openDetail = async (bus) => {
     try {
@@ -212,7 +232,7 @@ export default function TransportManagement() {
     } catch { setDetailModal({ open: true, bus }) }
   }
 
-  // ─── Maintenance CRUD ────────────────────────────────────────────────────────
+  // ─── Maintenance ────────────────────────────────────────────────────────────
 
   const openAddMaintenance = (bus) => {
     setMaintForm({ ...EMPTY_MAINTENANCE, busId: bus._id, kilometrage: bus.kilometrage || '' })
@@ -246,6 +266,35 @@ export default function TransportManagement() {
     } catch (e) { alert(e.response?.data?.message || 'Erreur') }
   }
 
+  // ─── Mouchard ───────────────────────────────────────────────────────────────
+
+  const openAddMouchard = (bus) => {
+    setMouchForm({ ...EMPTY_MOUCHARD, busId: bus._id, conducteur: bus.chauffeur?.nom || '', kilometrageDepart: bus.kilometrage || '' })
+    setMouchModal({ open: true, busId: bus._id, busLabel: `${bus.matricule} — ${bus.marque}` })
+    setError('')
+  }
+
+  const saveMouchard = async () => {
+    if (!mouchForm.destination.trim()) return setError('La destination est obligatoire')
+    if (!mouchForm.dateDepart)         return setError('La date de départ est obligatoire')
+    setSaving(true); setError('')
+    try {
+      await axios.post(`${API_URL}/transport/${mouchForm.busId}/mouchard`, mouchForm, { headers: authHeader() })
+      setMouchModal({ open: false, busId: null, busLabel: '' })
+      fetchBuses(); fetchMouchard()
+    } catch (e) {
+      setError(e.response?.data?.message || 'Erreur lors de la sauvegarde')
+    } finally { setSaving(false) }
+  }
+
+  const deleteMouchardEntry = async (busId, logId) => {
+    if (!window.confirm('Supprimer cette entrée mouchard ?')) return
+    try {
+      await axios.delete(`${API_URL}/transport/${busId}/mouchard/${logId}`, { headers: authHeader() })
+      fetchMouchard()
+    } catch (e) { alert(e.response?.data?.message || 'Erreur') }
+  }
+
   // ─── Helpers ─────────────────────────────────────────────────────────────────
 
   const getExpiryClass = (dateStr) => {
@@ -257,11 +306,11 @@ export default function TransportManagement() {
   }
 
   const typeLabel = (v) => ENTRETIEN_TYPES.find(t => t.value === v)?.label || v
-  const typeIcon  = (v) => ENTRETIEN_TYPES.find(t => t.value === v)?.icon || '⚙️'
-
-  // ─── Render ──────────────────────────────────────────────────────────────────
+  const typeIcon  = (v) => ENTRETIEN_TYPES.find(t => t.value === v)?.icon  || '⚙️'
 
   const countsByType = stats?.maintenanceCostByType || []
+
+  // ─── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <ProfessionalLayout>
@@ -271,7 +320,7 @@ export default function TransportManagement() {
         <div className="transport-header">
           <div className="transport-title">
             <h1>🚌 Gestion du Transport</h1>
-            <p>Suivi des véhicules et des entretiens</p>
+            <p>Véhicules, entretiens, carte grise et suivi d'utilisation</p>
           </div>
           <button className="btn-add-bus" onClick={openAddBus}>+ Ajouter un véhicule</button>
         </div>
@@ -279,12 +328,12 @@ export default function TransportManagement() {
         {/* ── Stats cards ───────────────────────────────────────────────── */}
         <div className="transport-stats">
           {[
-            { label: 'Total véhicules', value: stats?.counts?.total ?? '—',  icon: '🚌', cls: 'stat-total' },
-            { label: 'Actifs',          value: stats?.counts?.actif ?? '—',  icon: '✅', cls: 'stat-actif' },
-            { label: 'En maintenance',  value: stats?.counts?.maintenance ?? '—', icon: '🔧', cls: 'stat-maintenance' },
-            { label: 'Inactifs',        value: stats?.counts?.inactif ?? '—', icon: '⛔', cls: 'stat-inactif' },
+            { label: 'Total véhicules',       value: stats?.counts?.total       ?? '—', icon: '🚌', cls: 'stat-total' },
+            { label: 'Actifs',                value: stats?.counts?.actif       ?? '—', icon: '✅', cls: 'stat-actif' },
+            { label: 'En maintenance',        value: stats?.counts?.maintenance ?? '—', icon: '🔧', cls: 'stat-maintenance' },
+            { label: 'Inactifs',              value: stats?.counts?.inactif     ?? '—', icon: '⛔', cls: 'stat-inactif' },
             { label: 'Coût total entretiens', value: stats ? fmtMoney(stats.totalMaintenanceCost) : '—', icon: '💰', cls: 'stat-cost' },
-            { label: 'Docs expirant (30j)', value: stats?.expiringDocs ?? '—', icon: '⚠️', cls: 'stat-expiry' },
+            { label: 'Docs expirant (30j)',   value: stats?.expiringDocs        ?? '—', icon: '⚠️', cls: 'stat-expiry' },
           ].map(s => (
             <div key={s.label} className={`stat-card ${s.cls}`}>
               <span className="stat-icon">{s.icon}</span>
@@ -301,39 +350,27 @@ export default function TransportManagement() {
           {[
             { id: 'vehicles',    label: '🚌 Véhicules' },
             { id: 'maintenance', label: '🔧 Entretiens' },
+            { id: 'mouchard',    label: '🗺️ Mouchard' },
             { id: 'stats',       label: '📊 Statistiques' },
           ].map(t => (
-            <button
-              key={t.id}
-              className={`tab-btn ${activeTab === t.id ? 'active' : ''}`}
-              onClick={() => setActiveTab(t.id)}
-            >{t.label}</button>
+            <button key={t.id} className={`tab-btn ${activeTab === t.id ? 'active' : ''}`} onClick={() => setActiveTab(t.id)}>
+              {t.label}
+            </button>
           ))}
         </div>
 
         {/* ══ TAB: VEHICLES ══════════════════════════════════════════════ */}
         {activeTab === 'vehicles' && (
           <div className="tab-content">
-            {/* Filter bar */}
             <div className="filter-bar">
-              <input
-                className="filter-input"
-                placeholder="🔍 Rechercher (matricule, marque, chauffeur…)"
-                value={busFilters.search}
-                onChange={e => setBusFilters(f => ({ ...f, search: e.target.value }))}
-              />
-              <select
-                className="filter-select"
-                value={busFilters.statut}
-                onChange={e => setBusFilters(f => ({ ...f, statut: e.target.value }))}
-              >
+              <input className="filter-input" placeholder="🔍 Rechercher (matricule, marque, chauffeur…)"
+                value={busFilters.search} onChange={e => setBusFilters(f => ({ ...f, search: e.target.value }))} />
+              <select className="filter-select" value={busFilters.statut} onChange={e => setBusFilters(f => ({ ...f, statut: e.target.value }))}>
                 <option value="">Tous les statuts</option>
-                {Object.entries(STATUT_CONFIG).map(([v, c]) => (
-                  <option key={v} value={v}>{c.icon} {c.label}</option>
-                ))}
+                {Object.entries(STATUT_CONFIG).map(([v, c]) => <option key={v} value={v}>{c.icon} {c.label}</option>)}
               </select>
               <button className="btn-filter" onClick={fetchBuses}>Appliquer</button>
-              <button className="btn-reset" onClick={() => { setBusFilters({ search: '', statut: '' }); }}>Réinitialiser</button>
+              <button className="btn-reset" onClick={() => setBusFilters({ search: '', statut: '' })}>Réinitialiser</button>
             </div>
 
             {loading ? (
@@ -355,7 +392,8 @@ export default function TransportManagement() {
                       <th onClick={() => handleSort('kilometrage')} className="sortable">Km <SortIcon field="kilometrage" /></th>
                       <th>Assurance</th>
                       <th>Contrôle</th>
-                      <th onClick={() => handleSort('statut')}    className="sortable">Statut <SortIcon field="statut" /></th>
+                      <th>Carte grise</th>
+                      <th onClick={() => handleSort('statut')} className="sortable">Statut <SortIcon field="statut" /></th>
                       <th>Actions</th>
                     </tr>
                   </thead>
@@ -371,12 +409,14 @@ export default function TransportManagement() {
                           <td>{bus.kilometrage?.toLocaleString('fr-FR')} km</td>
                           <td><span className={`expiry-tag ${getExpiryClass(bus.assuranceExpiration)}`}>{fmt(bus.assuranceExpiration)}</span></td>
                           <td><span className={`expiry-tag ${getExpiryClass(bus.controleExpiration)}`}>{fmt(bus.controleExpiration)}</span></td>
+                          <td><span className={`expiry-tag ${getExpiryClass(bus.dateExpirationCarteGrise)}`}>{fmt(bus.dateExpirationCarteGrise)}</span></td>
                           <td><span className={`status-badge ${sc.cls}`}>{sc.icon} {sc.label}</span></td>
                           <td>
                             <div className="action-btns">
-                              <button className="btn-icon" title="Détails"      onClick={() => openDetail(bus)}>👁️</button>
-                              <button className="btn-icon" title="Entretien"    onClick={() => openAddMaintenance(bus)}>🔧</button>
-                              <button className="btn-icon" title="Modifier"     onClick={() => openEditBus(bus)}>✏️</button>
+                              <button className="btn-icon" title="Détails"    onClick={() => openDetail(bus)}>👁️</button>
+                              <button className="btn-icon" title="Entretien"  onClick={() => openAddMaintenance(bus)}>🔧</button>
+                              <button className="btn-icon" title="Mouchard"   onClick={() => { setActiveTab('mouchard'); setMouchFilter({ busId: bus._id }) }}>🗺️</button>
+                              <button className="btn-icon" title="Modifier"   onClick={() => openEditBus(bus)}>✏️</button>
                               <button className="btn-icon btn-danger" title="Supprimer" onClick={() => confirmDelete(bus)}>🗑️</button>
                             </div>
                           </td>
@@ -390,49 +430,29 @@ export default function TransportManagement() {
           </div>
         )}
 
-        {/* ══ TAB: MAINTENANCE HISTORY ═══════════════════════════════════ */}
+        {/* ══ TAB: MAINTENANCE ═══════════════════════════════════════════ */}
         {activeTab === 'maintenance' && (
           <div className="tab-content">
             <div className="filter-bar">
-              <select
-                className="filter-select"
-                value={histFilters.busId}
-                onChange={e => setHistFilters(f => ({ ...f, busId: e.target.value }))}
-              >
+              <select className="filter-select" value={histFilters.busId} onChange={e => setHistFilters(f => ({ ...f, busId: e.target.value }))}>
                 <option value="">Tous les véhicules</option>
                 {buses.map(b => <option key={b._id} value={b._id}>{b.matricule} — {b.marque}</option>)}
               </select>
-              <select
-                className="filter-select"
-                value={histFilters.type}
-                onChange={e => setHistFilters(f => ({ ...f, type: e.target.value }))}
-              >
+              <select className="filter-select" value={histFilters.type} onChange={e => setHistFilters(f => ({ ...f, type: e.target.value }))}>
                 <option value="">Tous les types</option>
                 {ENTRETIEN_TYPES.map(t => <option key={t.value} value={t.value}>{t.icon} {t.label}</option>)}
               </select>
-              <input type="date" className="filter-input filter-date" value={histFilters.dateFrom} onChange={e => setHistFilters(f => ({ ...f, dateFrom: e.target.value }))} title="Date début" />
-              <input type="date" className="filter-input filter-date" value={histFilters.dateTo}   onChange={e => setHistFilters(f => ({ ...f, dateTo: e.target.value }))} title="Date fin" />
+              <input type="date" className="filter-input filter-date" value={histFilters.dateFrom} onChange={e => setHistFilters(f => ({ ...f, dateFrom: e.target.value }))} />
+              <input type="date" className="filter-input filter-date" value={histFilters.dateTo}   onChange={e => setHistFilters(f => ({ ...f, dateTo: e.target.value }))} />
               <button className="btn-filter" onClick={fetchHistory}>Appliquer</button>
               <button className="btn-reset" onClick={() => setHistFilters({ busId: '', type: '', dateFrom: '', dateTo: '' })}>Réinitialiser</button>
             </div>
-
-            {histLoading ? (
-              <div className="loading-state">⏳ Chargement…</div>
-            ) : history.length === 0 ? (
-              <div className="empty-state"><span>🔧</span><p>Aucun entretien enregistré.</p></div>
-            ) : (
+            {histLoading ? <div className="loading-state">⏳ Chargement…</div> :
+             history.length === 0 ? <div className="empty-state"><span>🔧</span><p>Aucun entretien enregistré.</p></div> : (
               <div className="table-wrapper">
                 <table className="transport-table">
                   <thead>
-                    <tr>
-                      <th>Date</th>
-                      <th>Véhicule</th>
-                      <th>Type</th>
-                      <th>Description</th>
-                      <th>Coût</th>
-                      <th>Km</th>
-                      <th>Prestataire</th>
-                    </tr>
+                    <tr><th>Date</th><th>Véhicule</th><th>Type</th><th>Description</th><th>Coût</th><th>Km</th><th>Prestataire</th></tr>
                   </thead>
                   <tbody>
                     {history.map((e, i) => (
@@ -453,16 +473,79 @@ export default function TransportManagement() {
           </div>
         )}
 
+        {/* ══ TAB: MOUCHARD ══════════════════════════════════════════════ */}
+        {activeTab === 'mouchard' && (
+          <div className="tab-content">
+            <div className="filter-bar">
+              <select className="filter-select" value={mouchFilter.busId} onChange={e => setMouchFilter({ busId: e.target.value })}>
+                <option value="">Tous les véhicules</option>
+                {buses.map(b => <option key={b._id} value={b._id}>{b.matricule} — {b.marque}</option>)}
+              </select>
+              <button className="btn-filter" onClick={fetchMouchard}>Appliquer</button>
+              <button className="btn-reset"  onClick={() => setMouchFilter({ busId: '' })}>Tous</button>
+              {mouchFilter.busId && (
+                <button className="btn-add-mouchard" onClick={() => {
+                  const bus = buses.find(b => b._id === mouchFilter.busId)
+                  if (bus) openAddMouchard(bus)
+                }}>+ Ajouter une sortie</button>
+              )}
+            </div>
+
+            {mouchLoading ? <div className="loading-state">⏳ Chargement…</div> :
+             mouchard.length === 0 ? (
+              <div className="empty-state">
+                <span>🗺️</span>
+                <p>Aucune sortie enregistrée.{' '}
+                  {buses.length > 0 && <button className="link-btn" onClick={() => openAddMouchard(buses[0])}>Enregistrer une sortie</button>}
+                </p>
+              </div>
+            ) : (
+              <div className="table-wrapper">
+                <table className="transport-table">
+                  <thead>
+                    <tr>
+                      <th>Départ</th>
+                      <th>Retour</th>
+                      <th>Véhicule</th>
+                      <th>Destination</th>
+                      <th>Conducteur</th>
+                      <th>Km départ</th>
+                      <th>Km retour</th>
+                      <th>Commentaire</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {mouchard.map((m, i) => (
+                      <tr key={m._id || i}>
+                        <td>{fmtDT(m.dateDepart)}</td>
+                        <td>{m.dateRetour ? fmtDT(m.dateRetour) : <span className="badge-en-cours">En cours</span>}</td>
+                        <td><strong>{m.bus?.matricule || '—'}</strong></td>
+                        <td>{m.destination}</td>
+                        <td>{m.conducteur || '—'}</td>
+                        <td>{m.kilometrageDepart ? `${Number(m.kilometrageDepart).toLocaleString('fr-FR')} km` : '—'}</td>
+                        <td>{m.kilometrageRetour ? `${Number(m.kilometrageRetour).toLocaleString('fr-FR')} km` : '—'}</td>
+                        <td>{m.commentaire || '—'}</td>
+                        <td>
+                          <button className="btn-icon btn-danger" title="Supprimer"
+                            onClick={() => deleteMouchardEntry(m.bus?._id || mouchFilter.busId, m._id)}>🗑️</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ══ TAB: STATS ═════════════════════════════════════════════════ */}
         {activeTab === 'stats' && (
           <div className="tab-content stats-tab">
             <div className="stats-grid">
-              {/* Cost by type */}
               <div className="stats-card">
                 <h3>💰 Coûts par type d'entretien</h3>
-                {countsByType.length === 0 ? (
-                  <p className="text-muted">Aucune donnée</p>
-                ) : (
+                {countsByType.length === 0 ? <p className="text-muted">Aucune donnée</p> : (
                   <table className="stats-table">
                     <thead><tr><th>Type</th><th>Interventions</th><th>Coût total</th></tr></thead>
                     <tbody>
@@ -477,13 +560,9 @@ export default function TransportManagement() {
                   </table>
                 )}
               </div>
-
-              {/* Recent maintenance */}
               <div className="stats-card">
                 <h3>🕐 Derniers entretiens</h3>
-                {(stats?.recentMaintenance || []).length === 0 ? (
-                  <p className="text-muted">Aucun entretien</p>
-                ) : (
+                {(stats?.recentMaintenance || []).length === 0 ? <p className="text-muted">Aucun entretien</p> : (
                   <ul className="recent-list">
                     {stats.recentMaintenance.map((e, i) => (
                       <li key={i} className="recent-item">
@@ -497,8 +576,6 @@ export default function TransportManagement() {
                   </ul>
                 )}
               </div>
-
-              {/* Buses status summary */}
               <div className="stats-card">
                 <h3>🚌 État de la flotte</h3>
                 <div className="fleet-summary">
@@ -567,7 +644,25 @@ export default function TransportManagement() {
                 </div>
 
                 <div className="form-section">
-                  <h4>Documents</h4>
+                  <h4>📄 Carte grise</h4>
+                  <div className="form-grid-3">
+                    <div className="form-group">
+                      <label>N° carte grise</label>
+                      <input value={busForm.carteGriseNumero} onChange={e => setBusForm(f => ({ ...f, carteGriseNumero: e.target.value }))} placeholder="Numéro d'immatriculation" />
+                    </div>
+                    <div className="form-group">
+                      <label>Date mise en circulation</label>
+                      <input type="date" value={busForm.dateMiseEnCirculation} onChange={e => setBusForm(f => ({ ...f, dateMiseEnCirculation: e.target.value }))} />
+                    </div>
+                    <div className="form-group">
+                      <label>Expiration carte grise</label>
+                      <input type="date" value={busForm.dateExpirationCarteGrise} onChange={e => setBusForm(f => ({ ...f, dateExpirationCarteGrise: e.target.value }))} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="form-section">
+                  <h4>📋 Documents</h4>
                   <div className="form-grid-2">
                     <div className="form-group">
                       <label>Expiration assurance</label>
@@ -581,7 +676,7 @@ export default function TransportManagement() {
                 </div>
 
                 <div className="form-section">
-                  <h4>Chauffeur assigné</h4>
+                  <h4>👤 Chauffeur assigné</h4>
                   <div className="form-grid-3">
                     <div className="form-group">
                       <label>Nom</label>
@@ -669,6 +764,58 @@ export default function TransportManagement() {
           </div>
         )}
 
+        {/* ══ MODAL: Add Mouchard ════════════════════════════════════════ */}
+        {mouchModal.open && (
+          <div className="modal-overlay" onClick={() => setMouchModal({ open: false, busId: null, busLabel: '' })}>
+            <div className="modal-content modal-maintenance" onClick={e => e.stopPropagation()}>
+              <div className="modal-header">
+                <h2>🗺️ Enregistrer une sortie</h2>
+                <button className="close-btn" onClick={() => setMouchModal({ open: false, busId: null, busLabel: '' })}>✕</button>
+              </div>
+              <div className="modal-body">
+                {error && <div className="form-error">⚠️ {error}</div>}
+                <div className="maint-bus-label">🚌 {mouchModal.busLabel}</div>
+                <div className="form-grid-2">
+                  <div className="form-group">
+                    <label>Date / heure départ *</label>
+                    <input type="datetime-local" value={mouchForm.dateDepart} onChange={e => setMouchForm(f => ({ ...f, dateDepart: e.target.value }))} />
+                  </div>
+                  <div className="form-group">
+                    <label>Date / heure retour</label>
+                    <input type="datetime-local" value={mouchForm.dateRetour} onChange={e => setMouchForm(f => ({ ...f, dateRetour: e.target.value }))} />
+                  </div>
+                  <div className="form-group">
+                    <label>Destination *</label>
+                    <input value={mouchForm.destination} onChange={e => setMouchForm(f => ({ ...f, destination: e.target.value }))} placeholder="Ex: Centre-ville, Hôpital…" />
+                  </div>
+                  <div className="form-group">
+                    <label>Conducteur</label>
+                    <input value={mouchForm.conducteur} onChange={e => setMouchForm(f => ({ ...f, conducteur: e.target.value }))} placeholder="Nom du conducteur" />
+                  </div>
+                  <div className="form-group">
+                    <label>Km au départ</label>
+                    <input type="number" value={mouchForm.kilometrageDepart} onChange={e => setMouchForm(f => ({ ...f, kilometrageDepart: e.target.value }))} min={0} />
+                  </div>
+                  <div className="form-group">
+                    <label>Km au retour</label>
+                    <input type="number" value={mouchForm.kilometrageRetour} onChange={e => setMouchForm(f => ({ ...f, kilometrageRetour: e.target.value }))} min={0} />
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label>Commentaire</label>
+                  <textarea value={mouchForm.commentaire} onChange={e => setMouchForm(f => ({ ...f, commentaire: e.target.value }))} rows={2} placeholder="Objet de la sortie…" />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button className="btn-cancel" onClick={() => setMouchModal({ open: false, busId: null, busLabel: '' })}>Annuler</button>
+                <button className="btn-submit" onClick={saveMouchard} disabled={saving}>
+                  {saving ? '⏳ Enregistrement…' : '✅ Enregistrer'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ══ MODAL: Bus Detail ══════════════════════════════════════════ */}
         {detailModal.open && detailModal.bus && (
           <div className="modal-overlay" onClick={() => setDetailModal({ open: false, bus: null })}>
@@ -678,7 +825,6 @@ export default function TransportManagement() {
                 <button className="close-btn" onClick={() => setDetailModal({ open: false, bus: null })}>✕</button>
               </div>
               <div className="modal-body">
-                {/* Info grid */}
                 <div className="detail-info-grid">
                   {[
                     ['Marque / Modèle', `${detailModal.bus.marque} ${detailModal.bus.modele || ''}`],
@@ -690,6 +836,9 @@ export default function TransportManagement() {
                     ['Chauffeur', detailModal.bus.chauffeur?.nom || 'Non assigné'],
                     ['Tél. chauffeur', detailModal.bus.chauffeur?.telephone || '—'],
                     ['Permis', detailModal.bus.chauffeur?.permis || '—'],
+                    ['N° Carte grise', detailModal.bus.carteGriseNumero || '—'],
+                    ['Mise en circulation', fmt(detailModal.bus.dateMiseEnCirculation)],
+                    ['Exp. carte grise', fmt(detailModal.bus.dateExpirationCarteGrise)],
                     ['Assurance exp.', fmt(detailModal.bus.assuranceExpiration)],
                     ['Contrôle exp.', fmt(detailModal.bus.controleExpiration)],
                   ].map(([k, v]) => (
@@ -701,13 +850,10 @@ export default function TransportManagement() {
                 </div>
                 {detailModal.bus.notes && <p className="detail-notes">📝 {detailModal.bus.notes}</p>}
 
-                {/* Maintenance history */}
                 <div className="detail-history">
                   <div className="detail-history-header">
                     <h4>🔧 Historique des entretiens ({detailModal.bus.historique?.length || 0})</h4>
-                    <button className="btn-sm-add" onClick={() => { setDetailModal({ open: false, bus: null }); openAddMaintenance(detailModal.bus) }}>
-                      + Ajouter
-                    </button>
+                    <button className="btn-sm-add" onClick={() => { setDetailModal({ open: false, bus: null }); openAddMaintenance(detailModal.bus) }}>+ Ajouter</button>
                   </div>
                   {(detailModal.bus.historique || []).length === 0 ? (
                     <p className="text-muted">Aucun entretien enregistré.</p>
@@ -751,8 +897,7 @@ export default function TransportManagement() {
                 <button className="close-btn" onClick={() => setDeleteConfirm({ open: false, id: null, label: '' })}>✕</button>
               </div>
               <div className="modal-body">
-                <p>Supprimer le véhicule <strong>{deleteConfirm.label}</strong> et tout son historique d'entretiens ?</p>
-                <p className="text-danger">Cette action est irréversible.</p>
+                <p>Supprimer le véhicule <strong>{deleteConfirm.label}</strong> et tout son historique ?</p>
               </div>
               <div className="modal-footer">
                 <button className="btn-cancel" onClick={() => setDeleteConfirm({ open: false, id: null, label: '' })}>Annuler</button>

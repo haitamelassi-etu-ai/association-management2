@@ -155,18 +155,66 @@ exports.getStats = async (req, res) => {
       .sort((a, b) => new Date(b.date) - new Date(a.date))
       .slice(0, 5);
 
-    // Expiring documents (next 30 days)
+    // Expiring documents (next 30 days) — assurance, contrôle, carte grise
     const in30days = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     const expiringDocs = buses.filter(
       (b) =>
-        (b.assuranceExpiration && new Date(b.assuranceExpiration) <= in30days) ||
-        (b.controleExpiration && new Date(b.controleExpiration) <= in30days)
+        (b.assuranceExpiration       && new Date(b.assuranceExpiration)       <= in30days) ||
+        (b.controleExpiration        && new Date(b.controleExpiration)        <= in30days) ||
+        (b.dateExpirationCarteGrise  && new Date(b.dateExpirationCarteGrise)  <= in30days)
     ).length;
 
     res.json({
       success: true,
       data: { counts, maintenanceCostByType, totalMaintenanceCost, recentMaintenance, expiringDocs }
     });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// ─── Mouchard: get usage logs ─────────────────────────────────────────────────
+exports.getMouchard = async (req, res) => {
+  try {
+    const bus = await Transport.findById(req.params.id).select('matricule marque mouchard');
+    if (!bus) return res.status(404).json({ success: false, message: 'Véhicule non trouvé' });
+    const sorted = [...bus.mouchard].sort((a, b) => new Date(b.dateDepart) - new Date(a.dateDepart));
+    res.json({ success: true, data: sorted });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// ─── Mouchard: add usage log ──────────────────────────────────────────────────
+exports.addMouchard = async (req, res) => {
+  try {
+    const bus = await Transport.findById(req.params.id);
+    if (!bus) return res.status(404).json({ success: false, message: 'Véhicule non trouvé' });
+
+    bus.mouchard.unshift(req.body);
+
+    // Update bus km if return km is higher
+    if (req.body.kilometrageRetour && req.body.kilometrageRetour > bus.kilometrage) {
+      bus.kilometrage = req.body.kilometrageRetour;
+    }
+
+    await bus.save();
+    res.status(201).json({ success: true, data: bus.mouchard[0] });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+// ─── Mouchard: delete usage log ───────────────────────────────────────────────
+exports.deleteMouchard = async (req, res) => {
+  try {
+    const bus = await Transport.findById(req.params.id);
+    if (!bus) return res.status(404).json({ success: false, message: 'Véhicule non trouvé' });
+
+    bus.mouchard = bus.mouchard.filter((m) => m._id.toString() !== req.params.logId);
+    await bus.save();
+
+    res.json({ success: true, message: 'Entrée supprimée' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
