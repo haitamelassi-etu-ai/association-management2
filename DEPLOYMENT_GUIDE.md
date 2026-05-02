@@ -1,0 +1,5 @@
+#🌍 Multilingual Support (عربي/فرنسي/إنجليزي)
+💾 Backup System (تصدير البيانات JSON)
+🍽️ Service Distribution (توزيع الوجبات)
+🌙 Dark Mode (الوضع الليلي)
+� Advanced Reports (تقارير متقدمة)
