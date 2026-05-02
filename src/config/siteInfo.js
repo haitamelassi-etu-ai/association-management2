@@ -1,8 +1,8 @@
 export const SITE_INFO = {
-  name: 'Association Al Dhil Al Warif',
-  nameAr: 'جمعية الظل الوارف',
+  name: 'Association Al Amal',
+  nameAr: 'جمعية الأمل',
   tagline: 'Solidarité • Dignité • Espoir',
-  heroTagline: 'Un toit, une chance, une dignité',
+  heroTagline: 'Ensemble, construisons un avenir meilleur',
 
   location: {
     city: 'Casablanca',
@@ -10,7 +10,7 @@ export const SITE_INFO = {
   },
 
   leadership: {
-    president: 'M. Abdelkabir El Assi'
+    president: ''
   },
 
   stats: {
@@ -23,7 +23,7 @@ export const SITE_INFO = {
     emergencyPhoneLabel: 'Téléphone',
     emergencyPhone: '+212664039530',
     emergencyPhoneNote: '',
-    email: 'ass.addelalwaref@gmail.com',
+    email: 'contact@al-amal.ma',
     addressLines: ['Casablanca', 'Maroc'],
     googleMapsUrl: 'https://maps.app.goo.gl/cQMiZg736uZWRMVP9',
     hoursTitle: 'Horaires',
@@ -50,15 +50,15 @@ export const SITE_INFO = {
 
   story: {
     summaryAr:
-      'جمعية اجتماعية خيرية تنشط بشكل بارز بمدينة الدار البيضاء، تعمل في الرعاية الاجتماعية والتنمية البشرية، وإيواء ورعاية المشردين، ومحاربة الإدمان، والدعم الاجتماعي والنفسي.',
+      'جمعية الأمل — جمعية اجتماعية خيرية تنشط بمدينة الدار البيضاء، تعمل في الرعاية الاجتماعية والتنمية البشرية، وإيواء ورعاية المشردين، والدعم الاجتماعي والنفسي.',
     establishedContextAr:
-      'تأسس المركز خلال الحجر الصحي سنة 2020 لإيواء المتشردين، تحت رعاية السيد عامل عمالة مقاطعات عين السبع الحي المحمدي.',
-    centersAr: ['مركز "عثمان بن عفان" للفرصة الثانية (مقاطعة عين السبع)'],
+      'تأسست الجمعية سنة 2020 لإيواء المتشردين، تحت رعاية السلطات المحلية لمقاطعات عين السبع الحي المحمدي.',
+    centersAr: ['مركز جمعية الأمل (مقاطعة عين السبع)'],
     summaryFr:
-      "Association sociale et caritative basée à Casablanca, active dans la prise en charge des personnes en grande précarité : hébergement, lutte contre l'addiction, accompagnement social et psychologique.",
+      "Association Al Amal — association sociale et caritative basée à Casablanca, active dans la prise en charge des personnes en grande précarité : hébergement, accompagnement social et psychologique.",
     establishedContextFr:
-      "Le centre a été mis en place durant la période de confinement (2020) pour l'hébergement des personnes sans-abri, en coordination avec les autorités locales (Arrondissement Aïn Sebaâ – Hay Mohammadi).",
-    centersFr: ['Centre « Othman Ibn Affan » – Deuxième Chance (Aïn Sebaâ)']
+      "L'association a été créée en 2020 pour l'hébergement des personnes sans-abri, en coordination avec les autorités locales (Arrondissement Aïn Sebaâ – Hay Mohammadi).",
+    centersFr: ['Centre Al Amal (Aïn Sebaâ)']
   }
 };
 

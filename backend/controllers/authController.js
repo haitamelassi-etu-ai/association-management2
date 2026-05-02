@@ -53,49 +53,31 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
-    console.log('🔐 Login attempt:', { email, passwordProvided: !!password });
 
-    // Validate input
     if (!email || !password) {
-      console.log('❌ Missing email or password');
       return res.status(400).json({
         success: false,
         message: 'Veuillez fournir email et mot de passe'
       });
     }
 
-    // Check user
-    const user = await User.findOne({ email }).select('+password');
-    console.log('👤 User found:', !!user);
-    if (!user) {
-      console.log('❌ User not found for email:', email);
+    const user = await User.findOne({ email: email.toLowerCase().trim() }).select('+password');
+
+    // Same message whether user not found or password wrong (prevents user enumeration)
+    if (!user || !(await user.comparePassword(password))) {
       return res.status(401).json({
         success: false,
         message: 'Email ou mot de passe incorrect'
       });
     }
 
-    // Check if user is active
     if (!user.isActive) {
-      console.log('❌ User is not active:', email);
       return res.status(401).json({
         success: false,
         message: 'Compte désactivé. Contactez l\'administrateur'
       });
     }
 
-    // Check password
-    const isMatch = await user.comparePassword(password);
-    console.log('🔑 Password match:', isMatch);
-    if (!isMatch) {
-      console.log('❌ Invalid password for user:', email);
-      return res.status(401).json({
-        success: false,
-        message: 'Email ou mot de passe incorrect'
-      });
-    }
-
-    console.log('✅ Login successful for:', email);
     res.status(200).json({
       success: true,
       data: {
@@ -108,10 +90,9 @@ exports.login = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('💥 Login error:', error.message);
     res.status(500).json({
       success: false,
-      message: error.message
+      message: 'Erreur serveur. Veuillez réessayer.'
     });
   }
 };

@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
-// Protect routes — permissive when no token (login-free mode)
+// Protect routes — requires valid JWT
 exports.protect = async (req, res, next) => {
   let token;
 
@@ -10,29 +10,32 @@ exports.protect = async (req, res, next) => {
   }
 
   if (!token) {
-    req.user = null;
-    return next();
+    return res.status(401).json({ success: false, message: 'Accès non autorisé — connexion requise' });
   }
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = await User.findById(decoded.id).select('-password');
-    if (!req.user || !req.user.isActive) req.user = null;
+    const user = await User.findById(decoded.id).select('-password');
+
+    if (!user || !user.isActive) {
+      return res.status(401).json({ success: false, message: 'Compte introuvable ou désactivé' });
+    }
+
+    req.user = user;
     next();
   } catch {
-    req.user = null;
-    next();
+    return res.status(401).json({ success: false, message: 'Token invalide ou expiré' });
   }
 };
 
-// Authorize roles (no-op when no user)
+// Authorize roles — always blocks if no authenticated user
 exports.authorize = (...roles) => {
   return (req, res, next) => {
-    if (req.user && !roles.includes(req.user.role)) {
-      return res.status(403).json({
-        success: false,
-        message: `Role ${req.user.role} n'est pas autorisé à accéder à cette route`
-      });
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: 'Accès non autorisé' });
+    }
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({ success: false, message: 'Permissions insuffisantes' });
     }
     next();
   };

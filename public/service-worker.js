@@ -1,4 +1,4 @@
-const CACHE_NAME = 'adel-elouerif-v1';
+const CACHE_NAME = 'al-amal-v1';
 
 const urlsToCache = [
   '/',

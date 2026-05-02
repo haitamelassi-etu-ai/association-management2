@@ -9,7 +9,7 @@ import './FoodStockManagement.css';
 import ProfessionalLayout from '../professional/ProfessionalLayout';
 import BarcodeScanner from './BarcodeScanner';
 
-const FoodStockManagement = ({ stockType = null }) => {
+const FoodStockManagement = () => {
   const navigate = useNavigate();
   const [stockItems, setStockItems] = useState([]);
   const [statistics, setStatistics] = useState(null);
@@ -20,7 +20,7 @@ const FoodStockManagement = ({ stockType = null }) => {
   const [filters, setFilters] = useState({
     statut: '',
     categorie: '',
-    type: stockType || '',
+    type: '',
     search: ''
   });
 
@@ -1517,7 +1517,7 @@ const FoodStockManagement = ({ stockType = null }) => {
     <ProfessionalLayout noPadding>
     <div className="food-stock-container">
       <div className="food-stock-header">
-        <h1>{stockType === 'medical' ? '🏥 Stock Médical' : '🍎 Stock Alimentaire'}</h1>
+        <h1>🍎 Stock Alimentaire</h1>
         <div className="header-actions">
           <button className="btn-print" onClick={printStock} title="Imprimer / PDF">
             🖨️ Imprimer / PDF
@@ -1671,18 +1671,6 @@ const FoodStockManagement = ({ stockType = null }) => {
           <option value="critique">Critique</option>
           <option value="expire">Expiré</option>
         </select>
-
-        {!stockType && (
-          <select
-            value={filters.type}
-            onChange={(e) => setFilters({ ...filters, type: e.target.value })}
-            className="filter-select"
-          >
-            <option value="">🏷️ Tous les types</option>
-            <option value="alimentaire">🍎 Alimentaire</option>
-            <option value="medical">🏥 Médical</option>
-          </select>
-        )}
 
         <select
           value={filters.categorie}
@@ -2682,27 +2670,6 @@ const FoodStockManagement = ({ stockType = null }) => {
             </div>
             <form onSubmit={handleAdd} className="stock-form">
               <div className="form-grid">
-                {!stockType && (
-                  <div className="form-group">
-                    <label>Type *</label>
-                    <select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })}>
-                      <option value="alimentaire">🍎 Alimentaire</option>
-                      <option value="medical">🏥 Matériel médical</option>
-                    </select>
-                  </div>
-                )}
-
-                {(formData.type === 'medical' || stockType === 'medical') && (
-                  <div className="form-group">
-                    <label>État</label>
-                    <select value={formData.etat} onChange={(e) => setFormData({ ...formData, etat: e.target.value })}>
-                      <option value="bon">✅ Bon état</option>
-                      <option value="endommage">⚠️ Endommagé</option>
-                      <option value="hors_service">❌ Hors service</option>
-                    </select>
-                  </div>
-                )}
-
                 <div className="form-group">
                   <label>Code-barres</label>
                   <input
@@ -2854,25 +2821,6 @@ const FoodStockManagement = ({ stockType = null }) => {
             </div>
             <form onSubmit={handleEdit} className="stock-form">
               <div className="form-grid">
-                {!stockType && (
-                  <div className="form-group">
-                    <label>Type *</label>
-                    <select value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })}>
-                      <option value="alimentaire">🍎 Alimentaire</option>
-                      <option value="medical">🏥 Matériel médical</option>
-                    </select>
-                  </div>
-                )}
-                {(formData.type === 'medical' || stockType === 'medical') && (
-                  <div className="form-group">
-                    <label>État</label>
-                    <select value={formData.etat} onChange={(e) => setFormData({ ...formData, etat: e.target.value })}>
-                      <option value="bon">✅ Bon état</option>
-                      <option value="endommage">⚠️ Endommagé</option>
-                      <option value="hors_service">❌ Hors service</option>
-                    </select>
-                  </div>
-                )}
                 <div className="form-group">
                   <label>Code-barres</label>
                   <input

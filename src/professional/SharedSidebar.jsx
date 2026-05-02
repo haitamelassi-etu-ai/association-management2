@@ -6,15 +6,27 @@ const NAV_GROUPS = [
   {
     label: 'Tableau de bord',
     items: [
-      { path: '/professional/dashboard', icon: '📊', label: 'Dashboard' },
+      { path: '/professional/dashboard',     icon: '📊', label: 'Dashboard' },
     ]
   },
   {
-    label: 'Gestion',
+    label: 'Gestion des stocks',
     items: [
       { path: '/professional/food-stock',    icon: '🍎', label: 'Stock Alimentaire' },
-      { path: '/professional/medical-stock', icon: '🏥', label: 'Stock Médical' },
+      { path: '/professional/medical-stock', icon: '🏥', label: 'Matériel Médical' },
+    ]
+  },
+  {
+    label: 'Transport',
+    items: [
       { path: '/professional/transport',     icon: '🚌', label: 'Transport' },
+    ]
+  },
+  {
+    label: 'Administration',
+    adminOnly: true,
+    items: [
+      { path: '/professional/staff',         icon: '👤', label: 'Personnel' },
     ]
   },
 ];
@@ -22,6 +34,7 @@ const NAV_GROUPS = [
 export const ProfessionalSidebar = ({ user, onLogout }) => {
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
+  const isAdmin = user?.role === 'admin';
 
   return (
     <>
@@ -59,7 +72,7 @@ export const ProfessionalSidebar = ({ user, onLogout }) => {
         </div>
 
         <nav className="sidebar-nav">
-          {NAV_GROUPS.map((group) => (
+          {NAV_GROUPS.filter(g => !g.adminOnly || isAdmin).map((group) => (
             <div key={group.label} className="nav-group">
               <div className="nav-group-label">{group.label}</div>
               {group.items.map((item) => (
@@ -79,12 +92,17 @@ export const ProfessionalSidebar = ({ user, onLogout }) => {
 
         <div className="sidebar-footer">
           <div className="user-info">
-            <div className="user-avatar">🏥</div>
+            <div className="user-avatar">👤</div>
             <div className="user-details">
-              <div className="user-name">Al Amal</div>
-              <div className="user-role">Association</div>
+              <div className="user-name">{user?.prenom} {user?.nom}</div>
+              <div className="user-role">{user?.role || 'Professionnel'}</div>
             </div>
           </div>
+          {onLogout && (
+            <button className="sidebar-logout" onClick={onLogout} title="Se déconnecter">
+              🚪 Déconnexion
+            </button>
+          )}
         </div>
       </aside>
     </>
