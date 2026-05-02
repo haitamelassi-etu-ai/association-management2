@@ -216,8 +216,9 @@ export default function ProfessionalDashboard() {
                 <div className="dash-card-header"><span>🚀 Accès rapide</span></div>
                 <div className="dash-card-body dash-nav-grid">
                   {[
-                    { to: '/professional/food-stock', icon: '🏪', label: 'Stock Alimentaire', desc: 'Gérer les articles et les stocks' },
-                    { to: '/professional/transport',  icon: '🚌', label: 'Transport',          desc: 'Véhicules et entretiens' },
+                    { to: '/professional/food-stock',    icon: '🍎', label: 'Stock Alimentaire', desc: 'Gérer les articles alimentaires' },
+                    { to: '/professional/medical-stock', icon: '🏥', label: 'Stock Médical',     desc: 'Matériel et équipements médicaux' },
+                    { to: '/professional/transport',     icon: '🚌', label: 'Transport',          desc: 'Véhicules et entretiens' },
                   ].map(n => (
                     <Link key={n.to} to={n.to} className="dash-nav-item">
                       <span className="dash-nav-icon">{n.icon}</span>

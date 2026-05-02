@@ -12,8 +12,9 @@ const NAV_GROUPS = [
   {
     label: 'Gestion',
     items: [
-      { path: '/professional/food-stock', icon: '🏪', label: 'Stock Alimentaire' },
-      { path: '/professional/transport',  icon: '🚌', label: 'Transport' },
+      { path: '/professional/food-stock',    icon: '🍎', label: 'Stock Alimentaire' },
+      { path: '/professional/medical-stock', icon: '🏥', label: 'Stock Médical' },
+      { path: '/professional/transport',     icon: '🚌', label: 'Transport' },
     ]
   },
 ];
