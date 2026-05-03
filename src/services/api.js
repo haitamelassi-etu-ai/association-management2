@@ -23,9 +23,10 @@ api.interceptors.request.use((config) => {
 })
 
 export const authAPI = {
-  register: (data) => api.post('/auth/register', data),
-  login:    (data) => api.post('/auth/login', data),
-  getMe:    ()     => api.get('/auth/me')
+  register:       (data) => api.post('/auth/register', data),
+  login:          (data) => api.post('/auth/login', data),
+  getMe:          ()     => api.get('/auth/me'),
+  changePassword: (data) => api.put('/auth/password', data)
 }
 
 export const usersAPI = {

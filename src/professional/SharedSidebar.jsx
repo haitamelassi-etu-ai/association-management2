@@ -91,13 +91,14 @@ export const ProfessionalSidebar = ({ user, onLogout }) => {
         </nav>
 
         <div className="sidebar-footer">
-          <div className="user-info">
+          <Link to="/professional/profile" className="user-info user-info-link" onClick={() => setIsOpen(false)}>
             <div className="user-avatar">👤</div>
             <div className="user-details">
               <div className="user-name">{user?.prenom} {user?.nom}</div>
               <div className="user-role">{user?.role || 'Professionnel'}</div>
             </div>
-          </div>
+            <span className="user-info-arrow">›</span>
+          </Link>
           {onLogout && (
             <button className="sidebar-logout" onClick={onLogout} title="Se déconnecter">
               🚪 Déconnexion
