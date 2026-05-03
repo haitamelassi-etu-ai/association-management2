@@ -1,108 +1,41 @@
 {
-  "name": "Association Adel Elouerif",
-  "short_name": "Adel Elouerif",
-  "description": "Application mobile pour la gestion de l'association humanitaire Adel Elouerif",
+  "name": "Association Al Amal — AAMH",
+  "short_name": "AAMH",
+  "description": "Application de gestion pour l'Association Al Amal",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#667eea",
-  "theme_color": "#667eea",
+  "background_color": "#1e3a8a",
+  "theme_color": "#1e3a8a",
   "orientation": "portrait-primary",
   "icons": [
-    {
-      "src": "/icon-72x72.png",
-      "sizes": "72x72",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon-96x96.png",
-      "sizes": "96x96",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon-128x128.png",
-      "sizes": "128x128",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon-144x144.png",
-      "sizes": "144x144",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon-152x152.png",
-      "sizes": "152x152",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon-192x192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icon-384x384.png",
-      "sizes": "384x384",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon-512x512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
+    { "src": "/images/logo.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/images/logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
   ],
-  "categories": ["social", "health", "lifestyle"],
-  "screenshots": [
-    {
-      "src": "/screenshot1.png",
-      "sizes": "540x720",
-      "type": "image/png"
-    }
-  ],
-  "share_target": {
-    "action": "/share",
-    "method": "POST",
-    "enctype": "multipart/form-data",
-    "params": {
-      "title": "title",
-      "text": "text",
-      "url": "url"
-    }
-  },
+  "categories": ["social", "productivity"],
   "shortcuts": [
     {
-      "name": "Dashboard",
+      "name": "Tableau de bord",
       "short_name": "Dashboard",
-      "description": "Voir le tableau de bord",
       "url": "/professional/dashboard",
-      "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/images/logo.png", "sizes": "192x192" }]
     },
     {
-      "name": "Bénéficiaires",
-      "short_name": "Bénéficiaires",
-      "description": "Gérer les bénéficiaires",
-      "url": "/professional/beneficiaries",
-      "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192" }]
+      "name": "Stock Alimentaire",
+      "short_name": "Stock",
+      "url": "/professional/food-stock",
+      "icons": [{ "src": "/images/logo.png", "sizes": "192x192" }]
     },
     {
-      "name": "Médicaments",
-      "short_name": "Médicaments",
-      "description": "Gérer les médicaments",
-      "url": "/professional/medications",
-      "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192" }]
+      "name": "Matériel Médical",
+      "short_name": "Médical",
+      "url": "/professional/medical-stock",
+      "icons": [{ "src": "/images/logo.png", "sizes": "192x192" }]
     },
     {
-      "name": "Sorties",
-      "short_name": "Sorties",
-      "description": "Gérer les sorties résidents",
-      "url": "/professional/exit-tracking",
-      "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192" }]
+      "name": "Transport",
+      "short_name": "Transport",
+      "url": "/professional/transport",
+      "icons": [{ "src": "/images/logo.png", "sizes": "192x192" }]
     }
   ]
 }

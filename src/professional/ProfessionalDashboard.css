@@ -47,19 +47,23 @@
   padding: 10px;
   filter: brightness(1.1);
 }
-/* Logo wrapper (used instead of <img> so it works without a file) */
 .sidebar-logo-wrap {
-  width: 52px;
-  height: 52px;
+  width: 72px;
+  height: 72px;
   border-radius: 14px;
-  background: linear-gradient(135deg, #4f6ef7, #7c3aed);
+  background: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 0 auto 0.6rem;
-  box-shadow: 0 4px 14px rgba(79,110,247,0.35);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+  padding: 6px;
 }
-.sidebar-logo-icon { font-size: 1.6rem; }
+.sidebar-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
 
 .sidebar-header h2 {
   margin: 0;

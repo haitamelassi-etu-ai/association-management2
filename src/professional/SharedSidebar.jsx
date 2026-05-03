@@ -58,10 +58,10 @@ export const ProfessionalSidebar = ({ user, onLogout }) => {
       <aside className={`dashboard-sidebar ${isOpen ? 'mobile-open' : ''}`}>
         <div className="sidebar-header">
           <div className="sidebar-logo-wrap">
-            <span className="sidebar-logo-icon">🌟</span>
+            <img src="/images/logo.png" alt="AAMH" className="sidebar-logo-img" />
           </div>
-          <h2>Al Amal</h2>
-          <p>Portail de gestion</p>
+          <h2>AAMH</h2>
+          <p>Association Al Amal</p>
           <button
             className="mobile-close-btn"
             onClick={() => setIsOpen(false)}
