@@ -2,13 +2,8 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const dns = require('dns');
 
-// Load environment variables
 dotenv.config();
-
-// Force public DNS to avoid SRV lookup refusal on some networks
-dns.setServers(['8.8.8.8', '1.1.1.1']);
 
 // Import routes
 const authRoutes        = require('./routes/auth');
@@ -39,7 +34,7 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+app.options('/(.*)', cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
