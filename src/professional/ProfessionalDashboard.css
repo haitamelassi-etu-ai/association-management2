@@ -48,16 +48,12 @@
   filter: brightness(1.1);
 }
 .sidebar-logo-wrap {
-  width: 72px;
-  height: 72px;
-  border-radius: 14px;
-  background: #fff;
+  width: 80px;
+  height: 80px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto 0.6rem;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.18);
-  padding: 6px;
+  margin: 0 auto 0.4rem;
 }
 .sidebar-logo-img {
   width: 100%;
