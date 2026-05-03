@@ -18,25 +18,28 @@ const medicalStockRoutes = require('./routes/medicalStock');
 const transportRoutes   = require('./routes/transport');
 const app = express();
 
-// CORS — allow localhost and local network IPs
+const ALLOWED_ORIGINS = [
+  /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/,
+  /^http:\/\/(192\.168|10\.)\d+\.\d+\.\d+:\d+$/,
+  /\.vercel\.app$/,
+];
+if (process.env.FRONTEND_URL) ALLOWED_ORIGINS.push(process.env.FRONTEND_URL);
+
 const corsOptions = {
   origin: function (origin, callback) {
     if (!origin) return callback(null, true);
-    if (origin.match(/^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}):\d+$/)) {
-      return callback(null, true);
-    }
-    if (process.env.FRONTEND_URL && origin === process.env.FRONTEND_URL) {
-      return callback(null, true);
-    }
-    callback(new Error('Not allowed by CORS'));
+    const allowed = ALLOWED_ORIGINS.some(r =>
+      typeof r === 'string' ? r === origin : r.test(origin)
+    );
+    allowed ? callback(null, true) : callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 };
 
-// Middleware - CORS configuration for network access
 app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
