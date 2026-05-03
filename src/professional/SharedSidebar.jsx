@@ -14,6 +14,7 @@ const NAV_GROUPS = [
     items: [
       { path: '/professional/food-stock',    icon: '🍎', label: 'Stock Alimentaire' },
       { path: '/professional/medical-stock', icon: '🏥', label: 'Matériel Médical' },
+      { path: '/professional/history',       icon: '📜', label: 'Historique' },
     ]
   },
   {

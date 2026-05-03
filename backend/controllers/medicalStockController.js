@@ -1,4 +1,5 @@
 const MedicalStock = require('../models/MedicalStock');
+const { logMovement } = require('../utils/logMovement');
 
 exports.getAll = async (req, res) => {
   try {
@@ -21,6 +22,11 @@ exports.getAll = async (req, res) => {
 exports.create = async (req, res) => {
   try {
     const item = await MedicalStock.create(req.body);
+    await logMovement({
+      user: req.user, itemType: 'medical', itemId: item._id, itemName: item.nom,
+      action: 'create', before: 0, after: item.quantite, unite: item.unite,
+      reason: 'Création d\'un nouvel article'
+    });
     res.status(201).json({ success: true, data: item });
   } catch (err) {
     res.status(400).json({ success: false, message: err.message });
@@ -29,8 +35,21 @@ exports.create = async (req, res) => {
 
 exports.update = async (req, res) => {
   try {
+    const before = await MedicalStock.findById(req.params.id);
+    if (!before) return res.status(404).json({ success: false, message: 'Article non trouvé' });
+
     const item = await MedicalStock.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
-    if (!item) return res.status(404).json({ success: false, message: 'Article non trouvé' });
+
+    const qtyChanged = before.quantite !== item.quantite;
+    await logMovement({
+      user: req.user, itemType: 'medical', itemId: item._id, itemName: item.nom,
+      action: qtyChanged ? (item.quantite > before.quantite ? 'add' : 'remove') : 'update',
+      before: before.quantite, after: item.quantite, unite: item.unite,
+      reason: qtyChanged
+        ? `Quantité modifiée (${before.quantite} → ${item.quantite})`
+        : 'Mise à jour des informations'
+    });
+
     res.json({ success: true, data: item });
   } catch (err) {
     res.status(400).json({ success: false, message: err.message });
@@ -41,6 +60,11 @@ exports.remove = async (req, res) => {
   try {
     const item = await MedicalStock.findByIdAndDelete(req.params.id);
     if (!item) return res.status(404).json({ success: false, message: 'Article non trouvé' });
+    await logMovement({
+      user: req.user, itemType: 'medical', itemId: item._id, itemName: item.nom,
+      action: 'delete', before: item.quantite, after: 0, unite: item.unite,
+      reason: 'Article supprimé'
+    });
     res.json({ success: true, message: 'Article supprimé' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

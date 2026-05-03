@@ -11,6 +11,7 @@ const userRoutes        = require('./routes/users');
 const foodStockRoutes   = require('./routes/foodStock');
 const medicalStockRoutes = require('./routes/medicalStock');
 const transportRoutes   = require('./routes/transport');
+const stockMovementRoutes = require('./routes/stockMovements');
 const app = express();
 
 const ALLOWED_ORIGINS = [
@@ -43,6 +44,7 @@ app.use('/api/users',         userRoutes);
 app.use('/api/food-stock',    foodStockRoutes);
 app.use('/api/medical-stock', medicalStockRoutes);
 app.use('/api/transport',     transportRoutes);
+app.use('/api/stock-movements', stockMovementRoutes);
 
 // Serve uploaded files
 app.use('/uploads', express.static('uploads'));

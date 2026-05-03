@@ -6,6 +6,7 @@ import MedicalStockManagement from './components/MedicalStockManagement'
 import TransportManagement from './components/TransportManagement'
 import StaffManagement from './professional/StaffManagement'
 import MyProfile from './professional/MyProfile'
+import StockHistory from './professional/StockHistory'
 
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem('professionalToken')
@@ -33,6 +34,7 @@ function AppRouter() {
         <Route path="/professional/transport"     element={<ProtectedRoute><TransportManagement /></ProtectedRoute>} />
         <Route path="/professional/staff"         element={<ProtectedRoute><StaffManagement /></ProtectedRoute>} />
         <Route path="/professional/profile"       element={<ProtectedRoute><MyProfile /></ProtectedRoute>} />
+        <Route path="/professional/history"       element={<ProtectedRoute><StockHistory /></ProtectedRoute>} />
 
         <Route path="*" element={<Navigate to="/professional/dashboard" replace />} />
       </Routes>

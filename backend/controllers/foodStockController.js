@@ -1,5 +1,6 @@
 const FoodStock = require('../models/FoodStock');
 const { notifyAdmins } = require('../utils/notificationHelper');
+const { logMovement } = require('../utils/logMovement');
 
 // Obtenir tous les articles du stock
 exports.getAllStock = async (req, res) => {
@@ -96,6 +97,12 @@ exports.createStockItem = async (req, res) => {
     const item = new FoodStock(itemData);
     await item.save();
 
+    await logMovement({
+      user: req.user, itemType: 'food', itemId: item._id, itemName: item.nom,
+      action: 'create', before: 0, after: item.quantite, unite: item.unite,
+      reason: 'Article ajouté au stock'
+    });
+
     await notifyAdmins({
       type: 'success',
       title: 'Stock Alimentaire - Ajout',
@@ -181,6 +188,12 @@ exports.updateStockItem = async (req, res) => {
 
     if (nouvelleQuantite !== undefined && !Number.isNaN(nouvelleQuantite) && nouvelleQuantite !== ancienneQuantite) {
       const diff = nouvelleQuantite - ancienneQuantite;
+      await logMovement({
+        user: req.user, itemType: 'food', itemId: item._id, itemName: item.nom,
+        action: diff > 0 ? 'add' : 'remove',
+        before: ancienneQuantite, after: nouvelleQuantite, unite: item.unite,
+        reason: req.body.notes || `Quantité modifiée (${ancienneQuantite} → ${nouvelleQuantite})`
+      });
       await notifyAdmins({
         type: diff > 0 ? 'success' : 'warning',
         title: 'Stock Alimentaire - Mise à jour',
@@ -472,10 +485,16 @@ exports.getGlobalHistory = async (req, res) => {
 exports.deleteStockItem = async (req, res) => {
   try {
     const item = await FoodStock.findByIdAndDelete(req.params.id);
-    
+
     if (!item) {
       return res.status(404).json({ message: 'Article non trouvé' });
     }
+
+    await logMovement({
+      user: req.user, itemType: 'food', itemId: item._id, itemName: item.nom,
+      action: 'delete', before: item.quantite, after: 0, unite: item.unite,
+      reason: 'Article supprimé du stock'
+    });
 
     res.json({ message: 'Article supprimé avec succès' });
   } catch (error) {
