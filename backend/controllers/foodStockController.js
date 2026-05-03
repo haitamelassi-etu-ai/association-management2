@@ -248,7 +248,15 @@ exports.adjustStock = async (req, res) => {
       item.statut = 'disponible';
     }
 
+    const beforeQty = type === 'add' ? item.quantite - quantite : item.quantite + quantite;
     await item.save();
+
+    await logMovement({
+      user: req.user, itemType: 'food', itemId: item._id, itemName: item.nom,
+      action: type === 'add' ? 'add' : 'remove',
+      before: beforeQty, after: item.quantite, unite: item.unite,
+      reason: raison || (type === 'add' ? 'Approvisionnement' : 'Retrait')
+    });
 
     const action = type === 'add' ? 'Approvisionnement' : 'Retrait';
     await notifyAdmins({
@@ -285,8 +293,16 @@ exports.consommerStock = async (req, res) => {
       });
     }
 
+    const beforeQty = item.quantite;
     item.enregistrerConsommation(quantite, req.user?.id, raison);
     await item.save();
+
+    await logMovement({
+      user: req.user, itemType: 'food', itemId: item._id, itemName: item.nom,
+      action: 'consume',
+      before: beforeQty, after: item.quantite, unite: item.unite,
+      reason: raison || `Consommation de ${quantite} ${item.unite}`
+    });
 
     await notifyAdmins({
       type: 'info',
@@ -330,6 +346,7 @@ exports.sortieStock = async (req, res) => {
       return res.status(400).json({ message: 'Le type de sortie est obligatoire' });
     }
 
+    const beforeQty = item.quantite;
     item.enregistrerSortie(quantite, req.user?.id, typeSortie, destination, raison);
     await item.save();
 
@@ -341,6 +358,13 @@ exports.sortieStock = async (req, res) => {
       retour_fournisseur: 'Retour fournisseur',
       autre: 'Autre'
     };
+
+    await logMovement({
+      user: req.user, itemType: 'food', itemId: item._id, itemName: item.nom,
+      action: 'remove',
+      before: beforeQty, after: item.quantite, unite: item.unite,
+      reason: `${typeSortieLabels[typeSortie] || typeSortie}${destination ? ` → ${destination}` : ''}${raison ? ` (${raison})` : ''}`
+    });
 
     await notifyAdmins({
       type: typeSortie === 'don' ? 'info' : 'warning',
