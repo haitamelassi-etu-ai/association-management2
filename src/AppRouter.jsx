@@ -13,20 +13,19 @@ function ProtectedRoute({ children }) {
   return children
 }
 
+function PublicOnlyRoute({ children }) {
+  const token = localStorage.getItem('professionalToken')
+  if (token) return <Navigate to="/professional/dashboard" replace />
+  return children
+}
+
 function AppRouter() {
   return (
     <Router>
       <Routes>
         <Route path="/" element={<Navigate to="/professional/dashboard" replace />} />
 
-        <Route
-          path="/professional/login"
-          element={
-            localStorage.getItem('professionalToken')
-              ? <Navigate to="/professional/dashboard" replace />
-              : <ProfessionalLogin />
-          }
-        />
+        <Route path="/professional/login"         element={<PublicOnlyRoute><ProfessionalLogin /></PublicOnlyRoute>} />
 
         <Route path="/professional/dashboard"     element={<ProtectedRoute><ProfessionalDashboard /></ProtectedRoute>} />
         <Route path="/professional/food-stock"    element={<ProtectedRoute><FoodStockManagement /></ProtectedRoute>} />
