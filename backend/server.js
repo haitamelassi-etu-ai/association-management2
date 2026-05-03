@@ -58,23 +58,26 @@ app.get('/', (req, res) => {
   res.json({ message: 'API Association Al Amal' });
 });
 
-// Database connection
+// MongoDB — cached connection (serverless safe)
+let isConnected = false;
 const connectDB = async () => {
-  try {
-    await mongoose.connect(process.env.MONGODB_URI);
-    console.log('✅ MongoDB connecté');
-  } catch (error) {
-    console.error('❌ Erreur MongoDB:', error.message);
-    process.exit(1);
-  }
+  if (isConnected) return;
+  await mongoose.connect(process.env.MONGODB_URI);
+  isConnected = true;
 };
 
-const PORT = process.env.PORT || 5000;
+// Serverless export (Vercel) + local server
+if (process.env.NODE_ENV !== 'production') {
+  const PORT = process.env.PORT || 5000;
+  connectDB()
+    .then(() => app.listen(PORT, '0.0.0.0', () =>
+      console.log(`🚀 Serveur démarré sur le port ${PORT}`)
+    ))
+    .catch(err => console.error('❌ MongoDB:', err.message));
+}
 
-connectDB().then(() => {
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Serveur démarré sur le port ${PORT}`);
-  });
-});
-
-module.exports = app;
+// Vercel serverless handler
+module.exports = async (req, res) => {
+  await connectDB();
+  return app(req, res);
+};
