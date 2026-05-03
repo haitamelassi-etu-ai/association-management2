@@ -1,0 +1,48 @@
+.export-buttons {
+  display: inline-flex;
+  gap: 0.5rem;
+}
+
+.export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1rem;
+  border: 1.5px solid transparent;
+  border-radius: 9px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s;
+  background: #fff;
+  white-space: nowrap;
+}
+
+.export-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.export-btn-pdf {
+  color: #b91c1c;
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+.export-btn-pdf:hover:not(:disabled) {
+  background: #b91c1c;
+  color: #fff;
+  border-color: #b91c1c;
+  box-shadow: 0 3px 10px rgba(185,28,28,0.3);
+}
+
+.export-btn-xlsx {
+  color: #047857;
+  border-color: #a7f3d0;
+  background: #ecfdf5;
+}
+.export-btn-xlsx:hover:not(:disabled) {
+  background: #047857;
+  color: #fff;
+  border-color: #047857;
+  box-shadow: 0 3px 10px rgba(4,120,87,0.3);
+}

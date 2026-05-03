@@ -8,6 +8,23 @@ import { API_URL } from '../utils/api';
 import './FoodStockManagement.css';
 import ProfessionalLayout from '../professional/ProfessionalLayout';
 import BarcodeScanner from './BarcodeScanner';
+import ExportButtons from './ExportButtons';
+
+const fmtFR  = (n) => Number(n || 0).toLocaleString('fr-FR');
+const fmtDateFR = (d) => d ? new Date(d).toLocaleDateString('fr-FR') : '';
+
+const FOOD_EXPORT_COLUMNS = [
+  { header: 'Nom',          accessor: r => r.nom },
+  { header: 'Catégorie',    accessor: r => r.categorie },
+  { header: 'Quantité',     accessor: r => `${fmtFR(r.quantite)} ${r.unite || ''}`.trim() },
+  { header: 'Prix unit.',   accessor: r => r.prix != null ? `${fmtFR(r.prix)} DH` : '' },
+  { header: 'Valeur',       accessor: r => `${fmtFR((r.prix || 0) * (r.quantite || 0))} DH` },
+  { header: 'Statut',       accessor: r => r.statut },
+  { header: 'Date Achat',   accessor: r => fmtDateFR(r.dateAchat) },
+  { header: 'Expiration',   accessor: r => fmtDateFR(r.dateExpiration) },
+  { header: 'Fournisseur',  accessor: r => r.fournisseur },
+  { header: 'Emplacement',  accessor: r => r.emplacement },
+];
 
 const FoodStockManagement = () => {
   const navigate = useNavigate();
@@ -1519,14 +1536,13 @@ const FoodStockManagement = () => {
       <div className="food-stock-header">
         <h1>🍎 Stock Alimentaire</h1>
         <div className="header-actions">
-          <button className="btn-print" onClick={printStock} title="Imprimer / PDF">
-            🖨️ Imprimer / PDF
-          </button>
+          <ExportButtons
+            title="Stock Alimentaire"
+            columns={FOOD_EXPORT_COLUMNS}
+            rows={stockItems}
+          />
           <button className="btn-inventory" onClick={printInventorySheet} title="Fiche Inventaire Papier">
             📋 Fiche Inventaire
-          </button>
-          <button className="btn-export-excel" onClick={exportToExcel} title="Exporter en Excel">
-            📊 Exporter
           </button>
           <button className="btn-import" onClick={() => { setShowImportModal(true); fetchImportBatches(); }}>
             📥 Importer Excel

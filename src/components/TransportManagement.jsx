@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import axios from 'axios'
 import { API_URL } from '../utils/api'
 import ProfessionalLayout from '../professional/ProfessionalLayout'
+import ExportButtons from './ExportButtons'
 import './TransportManagement.css'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -34,6 +35,42 @@ const authHeader = () => ({ Authorization: `Bearer ${getToken()}` })
 const fmt    = (d) => d ? new Date(d).toLocaleDateString('fr-FR') : '—'
 const fmtDT  = (d) => d ? new Date(d).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '—'
 const fmtMoney = (n) => n != null ? `${Number(n).toLocaleString('fr-FR')} DH` : '—'
+
+const TRANSPORT_BUS_COLUMNS = [
+  { header: 'Matricule',   accessor: r => r.matricule },
+  { header: 'Marque',      accessor: r => r.marque },
+  { header: 'Modèle',      accessor: r => r.modele },
+  { header: 'Année',       accessor: r => r.annee },
+  { header: 'Capacité',    accessor: r => r.capacite },
+  { header: 'Chauffeur',   accessor: r => r.chauffeur?.nom },
+  { header: 'Téléphone',   accessor: r => r.chauffeur?.telephone },
+  { header: 'Kilométrage', accessor: r => r.kilometrage != null ? `${r.kilometrage.toLocaleString('fr-FR')} km` : '' },
+  { header: 'Statut',      accessor: r => STATUT_CONFIG[r.statut]?.label || r.statut },
+  { header: 'Assurance',   accessor: r => r.assuranceExpiration ? new Date(r.assuranceExpiration).toLocaleDateString('fr-FR') : '' },
+  { header: 'Contrôle',    accessor: r => r.controleExpiration  ? new Date(r.controleExpiration ).toLocaleDateString('fr-FR') : '' },
+  { header: 'Carte grise', accessor: r => r.dateExpirationCarteGrise ? new Date(r.dateExpirationCarteGrise).toLocaleDateString('fr-FR') : '' },
+]
+
+const TRANSPORT_MAINT_COLUMNS = [
+  { header: 'Date',        accessor: r => r.date ? new Date(r.date).toLocaleDateString('fr-FR') : '' },
+  { header: 'Véhicule',    accessor: r => r.bus?.matricule },
+  { header: 'Type',        accessor: r => ENTRETIEN_TYPES.find(t => t.value === r.type)?.label || r.type },
+  { header: 'Description', accessor: r => r.description },
+  { header: 'Coût (DH)',   accessor: r => r.cout != null ? Number(r.cout).toLocaleString('fr-FR') : '' },
+  { header: 'Kilométrage', accessor: r => r.kilometrage != null ? r.kilometrage.toLocaleString('fr-FR') : '' },
+  { header: 'Prestataire', accessor: r => r.prestataire },
+]
+
+const TRANSPORT_MOUCH_COLUMNS = [
+  { header: 'Départ',      accessor: r => r.dateDepart ? new Date(r.dateDepart).toLocaleString('fr-FR') : '' },
+  { header: 'Retour',      accessor: r => r.dateRetour ? new Date(r.dateRetour).toLocaleString('fr-FR') : '' },
+  { header: 'Véhicule',    accessor: r => r.bus?.matricule },
+  { header: 'Conducteur',  accessor: r => r.conducteur },
+  { header: 'Destination', accessor: r => r.destination },
+  { header: 'Km départ',   accessor: r => r.kilometrageDepart != null ? r.kilometrageDepart.toLocaleString('fr-FR') : '' },
+  { header: 'Km retour',   accessor: r => r.kilometrageRetour != null ? r.kilometrageRetour.toLocaleString('fr-FR') : '' },
+  { header: 'Commentaire', accessor: r => r.commentaire },
+]
 
 const EMPTY_BUS = {
   matricule: '', marque: '', modele: '', annee: new Date().getFullYear(),
@@ -322,7 +359,26 @@ export default function TransportManagement() {
             <h1>🚌 Gestion du Transport</h1>
             <p>Véhicules, entretiens, carte grise et suivi d'utilisation</p>
           </div>
-          <button className="btn-add-bus" onClick={openAddBus}>+ Ajouter un véhicule</button>
+          <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+            <ExportButtons
+              title={
+                activeTab === 'maintenance' ? 'Historique des entretiens' :
+                activeTab === 'mouchard'    ? 'Mouchard véhicules' :
+                'Liste des véhicules'
+              }
+              columns={
+                activeTab === 'maintenance' ? TRANSPORT_MAINT_COLUMNS :
+                activeTab === 'mouchard'    ? TRANSPORT_MOUCH_COLUMNS :
+                TRANSPORT_BUS_COLUMNS
+              }
+              rows={
+                activeTab === 'maintenance' ? history :
+                activeTab === 'mouchard'    ? mouchard :
+                sortedBuses
+              }
+            />
+            <button className="btn-add-bus" onClick={openAddBus}>+ Ajouter un véhicule</button>
+          </div>
         </div>
 
         {/* ── Stats cards ───────────────────────────────────────────────── */}

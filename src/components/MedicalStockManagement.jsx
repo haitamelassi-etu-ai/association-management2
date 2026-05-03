@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { API_URL } from '../utils/api';
 import ProfessionalLayout from '../professional/ProfessionalLayout';
+import ExportButtons from './ExportButtons';
 import './MedicalStockManagement.css';
 
 const BASE = `${API_URL}/medical-stock`;
@@ -44,6 +45,19 @@ function badge(value, map) {
   const entry = map.find(m => m.value === value);
   return <span className={`ms-badge ms-badge-${value}`}>{entry?.label || value}</span>;
 }
+
+const MEDICAL_EXPORT_COLUMNS = [
+  { header: 'Nom',         accessor: r => r.nom },
+  { header: 'Catégorie',   accessor: r => CATEGORIES.find(c => c.value === r.categorie)?.label || r.categorie },
+  { header: 'Quantité',    accessor: r => `${r.quantite} ${r.unite || ''}`.trim() },
+  { header: 'État',        accessor: r => ETATS.find(e => e.value === r.etat)?.label || r.etat },
+  { header: 'Statut',      accessor: r => STATUTS.find(s => s.value === r.statut)?.label || r.statut },
+  { header: 'Fournisseur', accessor: r => r.fournisseur },
+  { header: 'Emplacement', accessor: r => r.emplacement },
+  { header: 'N° Série',    accessor: r => r.numeroSerie },
+  { header: 'Valeur (DH)', accessor: r => r.valeur != null ? fmtN(r.valeur) : '' },
+  { header: 'Acquisition', accessor: r => fmt(r.dateAcquisition) },
+];
 
 export default function MedicalStockManagement() {
   const [items,   setItems]   = useState([]);
@@ -164,6 +178,11 @@ export default function MedicalStockManagement() {
             <p>Matériel et équipements médicaux</p>
           </div>
           <div className="ms-header-actions">
+            <ExportButtons
+              title="Stock Médical"
+              columns={MEDICAL_EXPORT_COLUMNS}
+              rows={sorted}
+            />
             <button className="ms-btn ms-btn-secondary" onClick={load}>🔄 Actualiser</button>
             <button className="ms-btn ms-btn-primary" onClick={openAdd}>+ Ajouter un article</button>
           </div>
