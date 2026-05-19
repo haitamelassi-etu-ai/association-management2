@@ -1,5 +1,7 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useState, useEffect } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
+import SmoothScrollProvider from './components/SmoothScrollProvider'
 import HomePage from './pages/HomePage'
 import DonationPage from './pages/DonationPage'
 import EmergencyPage from './pages/EmergencyPage'
@@ -9,6 +11,7 @@ import UserManagement from './pages/UserManagement'
 import StaffManagement from './pages/StaffManagement'
 import ActivityLog from './pages/ActivityLog'
 import Settings from './pages/Settings'
+import AssociationsManagement from './pages/AssociationsManagement'
 import BackupSystem from './pages/BackupSystem'
 import ProfessionalDashboard from './professional/ProfessionalDashboard'
 import Beneficiaries from './professional/Beneficiaries'
@@ -23,6 +26,7 @@ import MedicationManagement from './components/MedicationManagement'
 import PharmacyStock from './components/PharmacyStock'
 import ExitTracking from './components/ExitTracking'
 import FoodStockManagement from './components/FoodStockManagement'
+import TransportManagement from './components/TransportManagement'
 import ScheduleCalendar from './components/ScheduleCalendar'
 import TicketSystem from './components/TicketSystem'
 import DocumentManager from './components/DocumentManager'
@@ -77,7 +81,32 @@ function AppRouter() {
 
   return (
     <Router>
-      <Routes>
+      <SmoothScrollProvider>
+        <AnimatedRoutes isAdminLoggedIn={isAdminLoggedIn} handleLogout={handleLogout} />
+      </SmoothScrollProvider>
+    </Router>
+  )
+}
+
+const pageVariants = {
+  initial: { opacity: 0, y: 10 },
+  enter: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.2, 0.7, 0.2, 1] } },
+  exit: { opacity: 0, y: -6, transition: { duration: 0.22, ease: 'easeIn' } }
+}
+
+function AnimatedRoutes({ isAdminLoggedIn, handleLogout }) {
+  const location = useLocation()
+
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={location.pathname}
+        variants={pageVariants}
+        initial="initial"
+        animate="enter"
+        exit="exit"
+      >
+        <Routes location={location}>
         <Route path="/" element={<HomePage />} />
         <Route path="/don" element={<DonationPage />} />
         <Route path="/urgence" element={<EmergencyPage />} />
@@ -114,6 +143,12 @@ function AppRouter() {
           } 
         />
         <Route 
+          path="/admin/associations" 
+          element={
+            isAdminLoggedIn ? <AssociationsManagement /> : <Navigate to="/login" />
+          } 
+        />
+        <Route 
           path="/admin/settings" 
           element={
             isAdminLoggedIn ? <Settings /> : <Navigate to="/login" />
@@ -137,6 +172,7 @@ function AppRouter() {
         <Route path="/professional/medications" element={<MedicationManagement />} />
         <Route path="/professional/exit-tracking" element={<ExitTracking />} />
         <Route path="/professional/food-stock" element={<FoodStockManagement />} />
+        <Route path="/professional/transport" element={<TransportManagement />} />
         <Route path="/professional/advanced-reports" element={<AdvancedReports />} />
         <Route path="/professional/schedule" element={<ScheduleCalendar />} />
         <Route path="/professional/tickets" element={<TicketSystem />} />
@@ -155,8 +191,9 @@ function AppRouter() {
         <Route path="/professional/notifications" element={<NotificationsCenter />} />
         <Route path="/professional/export-reports" element={<ExportReports />} />
         <Route path="/professional/search" element={<AdvancedSearch />} />
-      </Routes>
-    </Router>
+        </Routes>
+      </motion.div>
+    </AnimatePresence>
   )
 }
 

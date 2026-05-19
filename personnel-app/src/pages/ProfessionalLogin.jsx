@@ -50,7 +50,7 @@ function ProfessionalLogin() {
             <img src="/images/logo.png" alt="Logo" className="login-logo" />
             <h1>Portail Professionnel</h1>
           </div>
-          <p>Association Al Dhil Al Warif</p>
+          <p>Association Adel Alwaref</p>
         </div>
 
         <form onSubmit={handleSubmit} className="login-form-pro">

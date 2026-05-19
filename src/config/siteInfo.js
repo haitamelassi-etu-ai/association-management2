@@ -1,5 +1,5 @@
 export const SITE_INFO = {
-  name: 'Association Al Dhil Al Warif',
+  name: 'Association Adel Alwaref',
   nameAr: 'جمعية الظل الوارف',
   tagline: 'Solidarité • Dignité • Espoir',
   heroTagline: 'Un toit, une chance, une dignité',

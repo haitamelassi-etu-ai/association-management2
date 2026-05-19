@@ -1,11 +1,11 @@
 {
-  "name": "Association Adel Elouerif",
-  "short_name": "Adel Elouerif",
-  "description": "Application mobile pour la gestion de l'association humanitaire Adel Elouerif",
+  "name": "Association Adel Alwaref",
+  "short_name": "Adel Alwaref",
+  "description": "Application mobile pour la gestion de l'association humanitaire Adel Alwaref",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#667eea",
-  "theme_color": "#667eea",
+  "background_color": "#f8f3e7",
+  "theme_color": "#caa24a",
   "orientation": "portrait-primary",
   "icons": [
     {
