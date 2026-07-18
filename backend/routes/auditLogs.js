@@ -3,10 +3,24 @@ const router = express.Router();
 const AuditLog = require('../models/AuditLog');
 const { protect, authorize } = require('../middleware/auth');
 
+const getAssociationId = (req) => req.user?.association?._id || req.user?.association;
+const scopedAuditQuery = (req, filters = {}) => {
+  const associationId = getAssociationId(req);
+  if (!associationId) return filters;
+  return {
+    ...filters,
+    $or: [
+      { association: associationId },
+      { association: { $exists: false } },
+      { association: null }
+    ]
+  };
+};
+
 // @route   GET /api/audit-logs
 // @desc    Get audit logs with filters
-// @access  Admin only
-router.get('/', protect, authorize('admin'), async (req, res) => {
+// @access  Admin, Responsable
+router.get('/', protect, authorize('admin', 'responsable'), async (req, res) => {
   try {
     const {
       page = 1,
@@ -19,7 +33,7 @@ router.get('/', protect, authorize('admin'), async (req, res) => {
       search
     } = req.query;
 
-    const query = {};
+    let query = {};
 
     if (action) query.action = action;
     if (resource) query.resource = resource;
@@ -30,6 +44,8 @@ router.get('/', protect, authorize('admin'), async (req, res) => {
       if (startDate) query.timestamp.$gte = new Date(startDate);
       if (endDate) query.timestamp.$lte = new Date(endDate);
     }
+
+    query = scopedAuditQuery(req, query);
 
     const logs = await AuditLog.find(query)
       .populate('user', 'nom prenom email role')
@@ -60,29 +76,31 @@ router.get('/', protect, authorize('admin'), async (req, res) => {
 
 // @route   GET /api/audit-logs/stats
 // @desc    Get audit log statistics
-// @access  Admin only
-router.get('/stats', protect, authorize('admin'), async (req, res) => {
+// @access  Admin, Responsable
+router.get('/stats', protect, authorize('admin', 'responsable'), async (req, res) => {
   try {
     const { days = 30 } = req.query;
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - parseInt(days));
 
+    const match = scopedAuditQuery(req, { timestamp: { $gte: startDate } });
+
     const [actionStats, resourceStats, dailyStats, userStats] = await Promise.all([
       // Actions distribution
       AuditLog.aggregate([
-        { $match: { timestamp: { $gte: startDate } } },
+        { $match: match },
         { $group: { _id: '$action', count: { $sum: 1 } } },
         { $sort: { count: -1 } }
       ]),
       // Resources distribution
       AuditLog.aggregate([
-        { $match: { timestamp: { $gte: startDate } } },
+        { $match: match },
         { $group: { _id: '$resource', count: { $sum: 1 } } },
         { $sort: { count: -1 } }
       ]),
       // Daily activity
       AuditLog.aggregate([
-        { $match: { timestamp: { $gte: startDate } } },
+        { $match: match },
         {
           $group: {
             _id: { $dateToString: { format: '%Y-%m-%d', date: '$timestamp' } },
@@ -93,7 +111,7 @@ router.get('/stats', protect, authorize('admin'), async (req, res) => {
       ]),
       // Most active users
       AuditLog.aggregate([
-        { $match: { timestamp: { $gte: startDate } } },
+        { $match: match },
         { $group: { _id: '$user', count: { $sum: 1 } } },
         { $sort: { count: -1 } },
         { $limit: 10 },
@@ -135,18 +153,20 @@ router.get('/stats', protect, authorize('admin'), async (req, res) => {
 
 // @route   GET /api/audit-logs/user/:userId
 // @desc    Get audit logs for a specific user
-// @access  Admin only
-router.get('/user/:userId', protect, authorize('admin'), async (req, res) => {
+// @access  Admin, Responsable
+router.get('/user/:userId', protect, authorize('admin', 'responsable'), async (req, res) => {
   try {
     const { page = 1, limit = 50 } = req.query;
 
-    const logs = await AuditLog.find({ user: req.params.userId })
+    const query = scopedAuditQuery(req, { user: req.params.userId });
+
+    const logs = await AuditLog.find(query)
       .populate('user', 'nom prenom email role')
       .sort({ timestamp: -1 })
       .skip((page - 1) * limit)
       .limit(parseInt(limit));
 
-    const total = await AuditLog.countDocuments({ user: req.params.userId });
+    const total = await AuditLog.countDocuments(query);
 
     res.json({
       success: true,
@@ -170,12 +190,12 @@ router.get('/user/:userId', protect, authorize('admin'), async (req, res) => {
 // @route   GET /api/audit-logs/resource/:resource/:resourceId
 // @desc    Get audit logs for a specific resource
 // @access  Admin, Staff
-router.get('/resource/:resource/:resourceId', protect, authorize('admin', 'staff'), async (req, res) => {
+router.get('/resource/:resource/:resourceId', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
-    const logs = await AuditLog.find({
+    const logs = await AuditLog.find(scopedAuditQuery(req, {
       resource: req.params.resource,
       resourceId: req.params.resourceId
-    })
+    }))
       .populate('user', 'nom prenom email role')
       .sort({ timestamp: -1 });
 

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
+import { API_URL, getAuthHeaders } from '../utils/api'
 import './NotificationsCenter.css'
 
 function NotificationsCenter() {
@@ -10,8 +11,6 @@ function NotificationsCenter() {
   const [loading, setLoading] = useState(false)
   const [filter, setFilter] = useState('all') // all, unread, urgent
   const dropdownRef = useRef(null)
-
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
   useEffect(() => {
     fetchNotifications()
@@ -35,11 +34,8 @@ function NotificationsCenter() {
 
   const fetchNotifications = async () => {
     try {
-      const token = localStorage.getItem('professionalToken')
-      const response = await fetch(`${API_URL}/api/notifications`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+      const response = await fetch(`${API_URL}/notifications`, {
+        headers: getAuthHeaders()
       })
       const data = await response.json()
       if (data.success) {
@@ -53,12 +49,9 @@ function NotificationsCenter() {
 
   const markAsRead = async (id) => {
     try {
-      const token = localStorage.getItem('professionalToken')
-      await fetch(`${API_URL}/api/notifications/${id}/read`, {
+      await fetch(`${API_URL}/notifications/${id}/read`, {
         method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: getAuthHeaders()
       })
       setNotifications(prev => 
         prev.map(n => n._id === id ? { ...n, read: true } : n)
@@ -71,12 +64,9 @@ function NotificationsCenter() {
 
   const markAllAsRead = async () => {
     try {
-      const token = localStorage.getItem('professionalToken')
-      await fetch(`${API_URL}/api/notifications/read-all`, {
+      await fetch(`${API_URL}/notifications/read-all`, {
         method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: getAuthHeaders()
       })
       setNotifications(prev => prev.map(n => ({ ...n, read: true })))
       setUnreadCount(0)
@@ -87,12 +77,9 @@ function NotificationsCenter() {
 
   const deleteNotification = async (id) => {
     try {
-      const token = localStorage.getItem('professionalToken')
-      await fetch(`${API_URL}/api/notifications/${id}`, {
+      await fetch(`${API_URL}/notifications/${id}`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: getAuthHeaders()
       })
       setNotifications(prev => prev.filter(n => n._id !== id))
     } catch (err) {

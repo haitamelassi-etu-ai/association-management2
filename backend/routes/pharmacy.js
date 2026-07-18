@@ -5,7 +5,7 @@ const { protect, authorize } = require('../middleware/auth');
 const { notifyAdmins } = require('../utils/notificationHelper');
 
 // Get all pharmacy medications
-router.get('/', protect, async (req, res) => {
+router.get('/', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const { category, search, active } = req.query;
     
@@ -36,7 +36,7 @@ router.get('/', protect, async (req, res) => {
 });
 
 // Get low stock medications
-router.get('/alerts/low-stock', protect, async (req, res) => {
+router.get('/alerts/low-stock', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const medications = await PharmacyStock.getLowStock();
 
@@ -55,7 +55,7 @@ router.get('/alerts/low-stock', protect, async (req, res) => {
 });
 
 // Get expired medications
-router.get('/alerts/expired', protect, async (req, res) => {
+router.get('/alerts/expired', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const medications = await PharmacyStock.getExpired();
 
@@ -74,7 +74,7 @@ router.get('/alerts/expired', protect, async (req, res) => {
 });
 
 // Get expiring soon medications
-router.get('/alerts/expiring-soon', protect, async (req, res) => {
+router.get('/alerts/expiring-soon', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const medications = await PharmacyStock.getExpiringSoon();
 
@@ -93,7 +93,7 @@ router.get('/alerts/expiring-soon', protect, async (req, res) => {
 });
 
 // Get single medication
-router.get('/:id', protect, async (req, res) => {
+router.get('/:id', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const medication = await PharmacyStock.findById(req.params.id)
       .populate('createdBy', 'name email');
@@ -119,7 +119,7 @@ router.get('/:id', protect, async (req, res) => {
 });
 
 // Add new medication to pharmacy stock
-router.post('/', protect, authorize('admin', 'staff'), async (req, res) => {
+router.post('/', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     console.log('📥 POST /api/pharmacy - Body:', req.body);
     console.log('👤 User:', req.user?.id);
@@ -194,7 +194,7 @@ router.post('/', protect, authorize('admin', 'staff'), async (req, res) => {
 });
 
 // Update medication stock
-router.patch('/:id/stock', protect, authorize('admin', 'staff'), async (req, res) => {
+router.patch('/:id/stock', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const { stock, operation } = req.body; // operation: 'set', 'add', 'subtract'
 
@@ -245,7 +245,7 @@ router.patch('/:id/stock', protect, authorize('admin', 'staff'), async (req, res
 });
 
 // Update medication details
-router.put('/:id', protect, authorize('admin', 'staff'), async (req, res) => {
+router.put('/:id', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const allowedUpdates = [
       'medicationName', 'genericName', 'category', 'dosageForm', 'strength',

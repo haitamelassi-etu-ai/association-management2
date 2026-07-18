@@ -4,7 +4,7 @@ const HealthRecord = require('../models/HealthRecord');
 const { protect, authorize } = require('../middleware/auth');
 
 // Get all health records
-router.get('/', protect, async (req, res) => {
+router.get('/', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const { beneficiaire, type, dateFrom, dateTo, urgence, search } = req.query;
     let query = {};
@@ -38,7 +38,7 @@ router.get('/', protect, async (req, res) => {
 });
 
 // Get health stats
-router.get('/stats', protect, async (req, res) => {
+router.get('/stats', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -73,7 +73,7 @@ router.get('/stats', protect, async (req, res) => {
 });
 
 // Get records for a specific beneficiary
-router.get('/beneficiary/:id', protect, async (req, res) => {
+router.get('/beneficiary/:id', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const records = await HealthRecord.find({ beneficiaire: req.params.id })
       .populate('creePar', 'nom prenom')
@@ -86,7 +86,7 @@ router.get('/beneficiary/:id', protect, async (req, res) => {
 });
 
 // Add a health record
-router.post('/', protect, async (req, res) => {
+router.post('/', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const record = await HealthRecord.create({
       ...req.body,
@@ -104,7 +104,7 @@ router.post('/', protect, async (req, res) => {
 });
 
 // Update a health record
-router.put('/:id', protect, async (req, res) => {
+router.put('/:id', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const record = await HealthRecord.findByIdAndUpdate(req.params.id, req.body, {
       new: true,

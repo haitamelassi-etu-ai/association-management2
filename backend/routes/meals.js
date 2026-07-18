@@ -5,7 +5,7 @@ const Beneficiary = require('../models/Beneficiary');
 const { protect, authorize } = require('../middleware/auth');
 
 // Get all meal distributions with filters
-router.get('/', protect, async (req, res) => {
+router.get('/', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const { date, mealType, served, beneficiaryId } = req.query;
     
@@ -42,7 +42,7 @@ router.get('/', protect, async (req, res) => {
 });
 
 // Get daily statistics
-router.get('/stats/daily', protect, async (req, res) => {
+router.get('/stats/daily', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const { date } = req.query;
     const targetDate = date ? new Date(date) : new Date();
@@ -73,7 +73,7 @@ router.get('/stats/daily', protect, async (req, res) => {
 });
 
 // Get weekly statistics
-router.get('/stats/weekly', protect, async (req, res) => {
+router.get('/stats/weekly', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const today = new Date();
     const weekAgo = new Date(today);
@@ -115,7 +115,7 @@ router.get('/stats/weekly', protect, async (req, res) => {
 });
 
 // Get beneficiary meal history
-router.get('/beneficiary/:id/history', protect, async (req, res) => {
+router.get('/beneficiary/:id/history', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const { days = 30 } = req.query;
     const history = await MealDistribution.getBeneficiaryHistory(
@@ -138,7 +138,7 @@ router.get('/beneficiary/:id/history', protect, async (req, res) => {
 });
 
 // Create new meal distribution
-router.post('/', protect, authorize('admin', 'staff'), async (req, res) => {
+router.post('/', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const {
       beneficiaryId,
@@ -188,7 +188,7 @@ router.post('/', protect, authorize('admin', 'staff'), async (req, res) => {
 });
 
 // Mark meal as served
-router.patch('/:id/serve', protect, authorize('admin', 'staff'), async (req, res) => {
+router.patch('/:id/serve', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const meal = await MealDistribution.findById(req.params.id);
     
@@ -225,7 +225,7 @@ router.patch('/:id/serve', protect, authorize('admin', 'staff'), async (req, res
 });
 
 // Update meal distribution
-router.put('/:id', protect, authorize('admin', 'staff'), async (req, res) => {
+router.put('/:id', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const meal = await MealDistribution.findById(req.params.id);
     
@@ -288,7 +288,7 @@ router.delete('/:id', protect, authorize('admin'), async (req, res) => {
 });
 
 // Bulk create meals for all beneficiaries
-router.post('/bulk', protect, authorize('admin', 'staff'), async (req, res) => {
+router.post('/bulk', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const { mealType, date, menuItems, cost } = req.body;
 
@@ -323,7 +323,7 @@ router.post('/bulk', protect, authorize('admin', 'staff'), async (req, res) => {
 });
 
 // Create daily meal plan with predefined menus
-router.post('/daily-plan', protect, authorize('admin', 'staff'), async (req, res) => {
+router.post('/daily-plan', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const { date } = req.body;
     const targetDate = date ? new Date(date) : new Date();

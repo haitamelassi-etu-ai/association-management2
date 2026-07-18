@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
+import { API_URL, getAuthHeaders } from '../utils/api'
 import './AuditLogViewer.css'
 
 function AuditLogViewer() {
@@ -49,17 +50,14 @@ function AuditLogViewer() {
   const fetchLogs = async () => {
     setLoading(true)
     try {
-      const token = localStorage.getItem('professionalToken')
       const params = new URLSearchParams({
         page: pagination.page,
         limit: pagination.limit,
         ...Object.fromEntries(Object.entries(filters).filter(([_, v]) => v))
       })
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/audit-logs?${params}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+      const response = await fetch(`${API_URL}/audit-logs?${params}`, {
+        headers: getAuthHeaders()
       })
 
       const data = await response.json()
@@ -76,11 +74,8 @@ function AuditLogViewer() {
 
   const fetchStats = async () => {
     try {
-      const token = localStorage.getItem('professionalToken')
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/audit-logs/stats`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+      const response = await fetch(`${API_URL}/audit-logs/stats`, {
+        headers: getAuthHeaders()
       })
 
       const data = await response.json()

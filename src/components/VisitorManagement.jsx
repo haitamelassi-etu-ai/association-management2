@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { API_URL } from '../utils/api';
+import { API_URL, getAuthToken } from '../utils/api';
 import ProfessionalLayout from '../professional/ProfessionalLayout';
 import './VisitorManagement.css';
 
@@ -20,7 +20,7 @@ const VisitorManagement = () => {
   const getToken = () => {
     const pu = localStorage.getItem('professionalUser');
     if (pu) return JSON.parse(pu).token;
-    return localStorage.getItem('token');
+    return getAuthToken();
   };
 
   const headers = { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' };

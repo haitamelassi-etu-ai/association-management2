@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
+import { API_URL, getAuthHeaders } from '../utils/api'
 import './ApprovalWorkflow.css'
 
 function ApprovalWorkflow() {
@@ -50,12 +51,11 @@ function ApprovalWorkflow() {
   const fetchRequests = async () => {
     setLoading(true)
     try {
-      const token = localStorage.getItem('professionalToken')
       const status = activeTab === 'all' ? '' : activeTab
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/approvals?status=${status}`,
+        `${API_URL}/approvals?status=${status}`,
         {
-          headers: { 'Authorization': `Bearer ${token}` }
+          headers: getAuthHeaders()
         }
       )
       const data = await response.json()
@@ -71,15 +71,11 @@ function ApprovalWorkflow() {
 
   const handleSubmit = async () => {
     try {
-      const token = localStorage.getItem('professionalToken')
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/approvals`,
+        `${API_URL}/approvals`,
         {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
+          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify(formData)
         }
       )
@@ -96,15 +92,11 @@ function ApprovalWorkflow() {
 
   const handleAction = async (requestId, action) => {
     try {
-      const token = localStorage.getItem('professionalToken')
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/approvals/${requestId}/${action}`,
+        `${API_URL}/approvals/${requestId}/${action}`,
         {
           method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
+          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({ comment })
         }
       )

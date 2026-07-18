@@ -2705,3 +2705,336 @@ tr.urgency-medium { background: #fefce8; }
 
   .toolbar-top-buttons { width: 100%; }
 }
+
+.module-locked {
+  background: #fff;
+  border-radius: 12px;
+  padding: 28px;
+  max-width: 520px;
+  margin: 60px auto;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  text-align: center;
+}
+
+.module-locked h2 {
+  margin-bottom: 8px;
+  color: #1f2937;
+}
+
+.module-locked p {
+  color: #4b5563;
+}
+
+/* Professional panel polish */
+.food-stock-container {
+  --stock-ink: #171512;
+  --stock-muted: #6b665d;
+  --stock-gold: #caa24a;
+  --stock-gold-soft: #f0d489;
+  --stock-cream: #f7f3ea;
+  --stock-paper: #fffdf8;
+  --stock-line: rgba(37, 35, 31, 0.12);
+  --stock-shadow: 0 18px 45px rgba(34, 29, 18, 0.08);
+  --stock-danger: #b82920;
+  --stock-radius: 8px;
+
+  max-width: none;
+  min-height: 100vh;
+  margin: 0;
+  padding: 28px 32px 42px;
+  background:
+    linear-gradient(180deg, rgba(202, 162, 74, 0.08), transparent 280px),
+    var(--stock-cream);
+  color: var(--stock-ink);
+  overflow-x: hidden;
+}
+
+.food-stock-container > .food-stock-header,
+.food-stock-container > .stats-grid,
+.food-stock-container > .stock-tabs {
+  display: none;
+}
+
+.food-stock-hero {
+  display: grid;
+  grid-template-columns: 1fr;
+  align-items: start;
+  gap: 20px;
+  margin-bottom: 18px;
+}
+
+.food-stock-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 8px;
+  color: var(--stock-gold);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.food-stock-kicker::before {
+  content: "";
+  width: 28px;
+  height: 1px;
+  background: currentColor;
+}
+
+.food-stock-hero h1 {
+  margin: 0;
+  color: var(--stock-ink);
+  font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
+  font-size: clamp(2.1rem, 3vw, 3.15rem);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.food-stock-hero p:not(.food-stock-kicker) {
+  max-width: 640px;
+  margin: 10px 0 0;
+  color: var(--stock-muted);
+  font-size: 0.95rem;
+  line-height: 1.65;
+}
+
+.food-stock-actions-pro {
+  display: flex;
+  justify-content: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.stock-tool-btn,
+.stock-tab-pro {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 13px;
+  border: 1px solid var(--stock-line);
+  border-radius: var(--stock-radius);
+  background: var(--stock-paper);
+  color: var(--stock-ink);
+  cursor: pointer;
+  font-size: 0.83rem;
+  font-weight: 750;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.75) inset;
+}
+
+.stock-tool-btn:hover,
+.stock-tab-pro:hover {
+  border-color: rgba(202, 162, 74, 0.52);
+  color: #7b5b14;
+  box-shadow: 0 10px 24px rgba(34, 29, 18, 0.08);
+}
+
+.stock-tool-btn.primary {
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--stock-gold), var(--stock-gold-soft));
+  color: #211b0d;
+  box-shadow: 0 14px 30px rgba(202, 162, 74, 0.24);
+}
+
+.stock-kpi-grid-pro {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.stock-kpi-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  min-width: 0;
+  padding: 17px;
+  border: 1px solid var(--stock-line);
+  border-radius: var(--stock-radius);
+  background: rgba(255, 253, 248, 0.92);
+  box-shadow: var(--stock-shadow);
+  overflow: hidden;
+}
+
+.stock-kpi-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: var(--stock-gold);
+}
+
+.stock-kpi-card.alert::before {
+  background: var(--stock-danger);
+}
+
+.stock-kpi-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: var(--stock-radius);
+  background: rgba(202, 162, 74, 0.12);
+  color: #8c6617;
+}
+
+.stock-kpi-card.alert .stock-kpi-icon {
+  background: rgba(184, 41, 32, 0.08);
+  color: var(--stock-danger);
+}
+
+.stock-kpi-card span {
+  display: block;
+  color: var(--stock-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.stock-kpi-card strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--stock-ink);
+  font-size: 1.55rem;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.stock-tabs-pro {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 8px;
+  border: 1px solid var(--stock-line);
+  border-radius: var(--stock-radius);
+  background: rgba(255, 253, 248, 0.78);
+  box-shadow: var(--stock-shadow);
+  overflow-x: auto;
+}
+
+.stock-tab-pro {
+  flex: 0 0 auto;
+  box-shadow: none;
+  background: transparent;
+}
+
+.stock-tab-pro.active {
+  border-color: rgba(202, 162, 74, 0.34);
+  background: linear-gradient(135deg, var(--stock-gold), var(--stock-gold-soft));
+  color: #211b0d;
+}
+
+.food-stock-container .alerts-section,
+.food-stock-container .filters-bar,
+.food-stock-container .stock-table-container {
+  border: 1px solid var(--stock-line);
+  border-radius: var(--stock-radius);
+  background: rgba(255, 253, 248, 0.92);
+  box-shadow: var(--stock-shadow);
+}
+
+.food-stock-container .filters-bar {
+  display: none;
+}
+
+.food-stock-container .filters-bar-pro {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) minmax(180px, 260px) minmax(220px, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 12px;
+}
+
+.food-stock-container .filter-select,
+.food-stock-container .filter-search {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--stock-line);
+  border-radius: var(--stock-radius);
+  background: #fff;
+  color: var(--stock-ink);
+  font-size: 0.9rem;
+}
+
+.food-stock-container .filter-select:focus,
+.food-stock-container .filter-search:focus {
+  outline: none;
+  border-color: var(--stock-gold);
+  box-shadow: 0 0 0 4px rgba(202, 162, 74, 0.14);
+}
+
+.food-stock-container .stock-table-container {
+  padding: 12px;
+}
+
+.food-stock-container .stock-table th {
+  background: #1a1814;
+  color: #fff8e8;
+}
+
+.food-stock-container .stock-table .value {
+  color: #7b5b14;
+}
+
+@media (max-width: 1200px) {
+  .food-stock-hero {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .food-stock-actions-pro {
+    justify-content: flex-start;
+  }
+
+  .stock-kpi-grid-pro {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .food-stock-container {
+    padding: 66px 12px 28px;
+  }
+
+  .food-stock-hero h1 {
+    font-size: clamp(2rem, 9vw, 2.55rem);
+  }
+
+  .food-stock-actions-pro {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .stock-tool-btn {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .stock-kpi-grid-pro {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .stock-kpi-card {
+    display: grid;
+    padding: 14px;
+  }
+
+  .stock-kpi-card strong {
+    font-size: 1.35rem;
+  }
+
+  .food-stock-container .filters-bar-pro {
+    grid-template-columns: 1fr;
+  }
+}

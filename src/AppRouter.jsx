@@ -1,49 +1,52 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import { Suspense, lazy, useState, useEffect } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import SmoothScrollProvider from './components/SmoothScrollProvider'
-import HomePage from './pages/HomePage'
-import DonationPage from './pages/DonationPage'
-import EmergencyPage from './pages/EmergencyPage'
-import UnifiedLogin from './pages/UnifiedLogin'
-import AdminPanel from './pages/AdminPanel'
-import UserManagement from './pages/UserManagement'
-import StaffManagement from './pages/StaffManagement'
-import ActivityLog from './pages/ActivityLog'
-import Settings from './pages/Settings'
-import AssociationsManagement from './pages/AssociationsManagement'
-import BackupSystem from './pages/BackupSystem'
-import ProfessionalDashboard from './professional/ProfessionalDashboard'
-import Beneficiaries from './professional/Beneficiaries'
-import Attendance from './professional/Attendance'
-import Announcements from './professional/Announcements'
-import Reports from './professional/Reports'
-import AnalyticsDashboard from './professional/AnalyticsDashboard'
-import BackupManager from './components/BackupManager'
-import MealDistribution from './components/MealDistribution'
-import AdvancedReports from './components/AdvancedReports'
-import MedicationManagement from './components/MedicationManagement'
-import PharmacyStock from './components/PharmacyStock'
-import ExitTracking from './components/ExitTracking'
-import FoodStockManagement from './components/FoodStockManagement'
-import TransportManagement from './components/TransportManagement'
-import ScheduleCalendar from './components/ScheduleCalendar'
-import TicketSystem from './components/TicketSystem'
-import DocumentManager from './components/DocumentManager'
-import ApprovalWorkflow from './components/ApprovalWorkflow'
-import AuditLogViewer from './components/AuditLogViewer'
-import TwoFactorSetup from './components/TwoFactorSetup'
-import UserSettings from './components/UserSettings'
-import VisitorManagement from './components/VisitorManagement'
-import VolunteerPortal from './components/VolunteerPortal'
-import FinancialTracker from './components/FinancialTracker'
-import RoomManagement from './components/RoomManagement'
-import HealthRecords from './components/HealthRecords'
-import CommunicationHub from './components/CommunicationHub'
-import Integrations from './components/Integrations'
-import NotificationsCenter from './components/NotificationsCenter'
-import ExportReports from './components/ExportReports'
-import AdvancedSearch from './components/AdvancedSearch'
+import { canAccessPath } from './utils/permissions'
+
+const HomePage = lazy(() => import('./pages/HomePage'))
+const DonationPage = lazy(() => import('./pages/DonationPage'))
+const EmergencyPage = lazy(() => import('./pages/EmergencyPage'))
+const UnifiedLogin = lazy(() => import('./pages/UnifiedLogin'))
+const AdminPanel = lazy(() => import('./pages/AdminPanel'))
+const UserManagement = lazy(() => import('./pages/UserManagement'))
+const StaffManagement = lazy(() => import('./pages/StaffManagement'))
+const ActivityLog = lazy(() => import('./pages/ActivityLog'))
+const Settings = lazy(() => import('./pages/Settings'))
+const AssociationsManagement = lazy(() => import('./pages/AssociationsManagement'))
+const BackupSystem = lazy(() => import('./pages/BackupSystem'))
+const SiteNews = lazy(() => import('./pages/SiteNews'))
+const ProfessionalDashboard = lazy(() => import('./professional/ProfessionalDashboard'))
+const Beneficiaries = lazy(() => import('./professional/Beneficiaries'))
+const Attendance = lazy(() => import('./professional/Attendance'))
+const Announcements = lazy(() => import('./professional/Announcements'))
+const Reports = lazy(() => import('./professional/Reports'))
+const AnalyticsDashboard = lazy(() => import('./professional/AnalyticsDashboard'))
+const BackupManager = lazy(() => import('./components/BackupManager'))
+const MealDistribution = lazy(() => import('./components/MealDistribution'))
+const AdvancedReports = lazy(() => import('./components/AdvancedReports'))
+const MedicationManagement = lazy(() => import('./components/MedicationManagement'))
+const PharmacyStock = lazy(() => import('./components/PharmacyStock'))
+const ExitTracking = lazy(() => import('./components/ExitTracking'))
+const FoodStockManagement = lazy(() => import('./components/FoodStockManagement'))
+const TransportManagement = lazy(() => import('./components/TransportManagement'))
+const ScheduleCalendar = lazy(() => import('./components/ScheduleCalendar'))
+const TicketSystem = lazy(() => import('./components/TicketSystem'))
+const DocumentManager = lazy(() => import('./components/DocumentManager'))
+const ApprovalWorkflow = lazy(() => import('./components/ApprovalWorkflow'))
+const AuditLogViewer = lazy(() => import('./components/AuditLogViewer'))
+const TwoFactorSetup = lazy(() => import('./components/TwoFactorSetup'))
+const UserSettings = lazy(() => import('./components/UserSettings'))
+const VisitorManagement = lazy(() => import('./components/VisitorManagement'))
+const VolunteerPortal = lazy(() => import('./components/VolunteerPortal'))
+const FinancialTracker = lazy(() => import('./components/FinancialTracker'))
+const RoomManagement = lazy(() => import('./components/RoomManagement'))
+const HealthRecords = lazy(() => import('./components/HealthRecords'))
+const CommunicationHub = lazy(() => import('./components/CommunicationHub'))
+const Integrations = lazy(() => import('./components/Integrations'))
+const NotificationsCenter = lazy(() => import('./components/NotificationsCenter'))
+const ExportReports = lazy(() => import('./components/ExportReports'))
+const AdvancedSearch = lazy(() => import('./components/AdvancedSearch'))
 
 function AppRouter() {
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false)
@@ -94,8 +97,37 @@ const pageVariants = {
   exit: { opacity: 0, y: -6, transition: { duration: 0.22, ease: 'easeIn' } }
 }
 
+function RouteFallback() {
+  return (
+    <div className="dash-loading" aria-live="polite">
+      <div className="dash-spinner" />
+    </div>
+  )
+}
+
+function getProfessionalUser() {
+  const stored = localStorage.getItem('professionalUser')
+  if (!stored) return null
+
+  try {
+    return JSON.parse(stored)
+  } catch {
+    return null
+  }
+}
+
+function ProfessionalRoute({ path, children }) {
+  const user = getProfessionalUser()
+  if (!user) return <Navigate to="/login" replace />
+  if (!canAccessPath(user, path)) return <Navigate to="/professional/dashboard" replace />
+  return children
+}
+
 function AnimatedRoutes({ isAdminLoggedIn, handleLogout }) {
   const location = useLocation()
+  const professional = (path, element) => (
+    <ProfessionalRoute path={path}>{element}</ProfessionalRoute>
+  )
 
   return (
     <AnimatePresence mode="wait" initial={false}>
@@ -106,6 +138,7 @@ function AnimatedRoutes({ isAdminLoggedIn, handleLogout }) {
         animate="enter"
         exit="exit"
       >
+        <Suspense fallback={<RouteFallback />}>
         <Routes location={location}>
         <Route path="/" element={<HomePage />} />
         <Route path="/don" element={<DonationPage />} />
@@ -160,38 +193,40 @@ function AnimatedRoutes({ isAdminLoggedIn, handleLogout }) {
             isAdminLoggedIn ? <BackupSystem /> : <Navigate to="/login" />
           } 
         />
-        <Route path="/professional/dashboard" element={<ProfessionalDashboard />} />
-        <Route path="/professional/analytics" element={<AnalyticsDashboard />} />
-        <Route path="/professional/beneficiaries" element={<Beneficiaries />} />
-        <Route path="/professional/attendance" element={<Attendance />} />
-        <Route path="/professional/announcements" element={<Announcements />} />
-        <Route path="/professional/reports" element={<Reports />} />
-        <Route path="/professional/backup" element={<BackupManager />} />
-        <Route path="/professional/meals" element={<MealDistribution />} />
-        <Route path="/professional/pharmacy" element={<PharmacyStock />} />
-        <Route path="/professional/medications" element={<MedicationManagement />} />
-        <Route path="/professional/exit-tracking" element={<ExitTracking />} />
-        <Route path="/professional/food-stock" element={<FoodStockManagement />} />
-        <Route path="/professional/transport" element={<TransportManagement />} />
-        <Route path="/professional/advanced-reports" element={<AdvancedReports />} />
-        <Route path="/professional/schedule" element={<ScheduleCalendar />} />
-        <Route path="/professional/tickets" element={<TicketSystem />} />
-        <Route path="/professional/documents" element={<DocumentManager />} />
-        <Route path="/professional/approvals" element={<ApprovalWorkflow />} />
-        <Route path="/professional/audit-log" element={<AuditLogViewer />} />
-        <Route path="/professional/two-factor" element={<TwoFactorSetup />} />
-        <Route path="/professional/settings" element={<UserSettings />} />
-        <Route path="/professional/visitors" element={<VisitorManagement />} />
-        <Route path="/professional/volunteers" element={<VolunteerPortal />} />
-        <Route path="/professional/financial" element={<FinancialTracker />} />
-        <Route path="/professional/rooms" element={<RoomManagement />} />
-        <Route path="/professional/health-records" element={<HealthRecords />} />
-        <Route path="/professional/communications" element={<CommunicationHub />} />
-        <Route path="/professional/integrations" element={<Integrations />} />
-        <Route path="/professional/notifications" element={<NotificationsCenter />} />
-        <Route path="/professional/export-reports" element={<ExportReports />} />
-        <Route path="/professional/search" element={<AdvancedSearch />} />
+        <Route path="/professional/dashboard" element={professional('/professional/dashboard', <ProfessionalDashboard />)} />
+        <Route path="/professional/analytics" element={professional('/professional/analytics', <AnalyticsDashboard />)} />
+        <Route path="/professional/beneficiaries" element={professional('/professional/beneficiaries', <Beneficiaries />)} />
+        <Route path="/professional/attendance" element={professional('/professional/attendance', <Attendance />)} />
+        <Route path="/professional/announcements" element={professional('/professional/announcements', <Announcements />)} />
+        <Route path="/professional/reports" element={professional('/professional/reports', <Reports />)} />
+        <Route path="/professional/backup" element={professional('/professional/backup', <BackupManager />)} />
+        <Route path="/professional/meals" element={professional('/professional/meals', <MealDistribution />)} />
+        <Route path="/professional/pharmacy" element={professional('/professional/pharmacy', <PharmacyStock />)} />
+        <Route path="/professional/medications" element={professional('/professional/medications', <MedicationManagement />)} />
+        <Route path="/professional/exit-tracking" element={professional('/professional/exit-tracking', <ExitTracking />)} />
+        <Route path="/professional/food-stock" element={professional('/professional/food-stock', <FoodStockManagement />)} />
+        <Route path="/professional/transport" element={professional('/professional/transport', <TransportManagement />)} />
+        <Route path="/professional/advanced-reports" element={professional('/professional/advanced-reports', <AdvancedReports />)} />
+        <Route path="/professional/schedule" element={professional('/professional/schedule', <ScheduleCalendar />)} />
+        <Route path="/professional/tickets" element={professional('/professional/tickets', <TicketSystem />)} />
+        <Route path="/professional/documents" element={professional('/professional/documents', <DocumentManager />)} />
+        <Route path="/professional/approvals" element={professional('/professional/approvals', <ApprovalWorkflow />)} />
+        <Route path="/professional/audit-log" element={professional('/professional/audit-log', <AuditLogViewer />)} />
+        <Route path="/professional/two-factor" element={professional('/professional/two-factor', <TwoFactorSetup />)} />
+        <Route path="/professional/settings" element={professional('/professional/settings', <UserSettings />)} />
+        <Route path="/professional/visitors" element={professional('/professional/visitors', <VisitorManagement />)} />
+        <Route path="/professional/volunteers" element={professional('/professional/volunteers', <VolunteerPortal />)} />
+        <Route path="/professional/financial" element={professional('/professional/financial', <FinancialTracker />)} />
+        <Route path="/professional/rooms" element={professional('/professional/rooms', <RoomManagement />)} />
+        <Route path="/professional/health-records" element={professional('/professional/health-records', <HealthRecords />)} />
+        <Route path="/professional/communications" element={professional('/professional/communications', <CommunicationHub />)} />
+        <Route path="/professional/integrations" element={professional('/professional/integrations', <Integrations />)} />
+        <Route path="/professional/notifications" element={professional('/professional/notifications', <NotificationsCenter />)} />
+        <Route path="/professional/export-reports" element={professional('/professional/export-reports', <ExportReports />)} />
+        <Route path="/professional/site-news" element={professional('/professional/site-news', <SiteNews />)} />
+        <Route path="/professional/search" element={professional('/professional/search', <AdvancedSearch />)} />
         </Routes>
+        </Suspense>
       </motion.div>
     </AnimatePresence>
   )

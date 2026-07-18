@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { API_URL } from '../utils/api';
+import { API_URL, getAuthToken } from '../utils/api';
 import './PharmacyStock.css';
 import ProfessionalLayout from '../professional/ProfessionalLayout';
 
@@ -61,7 +61,7 @@ const PharmacyStock = () => {
       const userData = JSON.parse(professionalUser);
       return userData.token;
     }
-    return localStorage.getItem('token');
+    return getAuthToken();
   };
 
   const showMessage = (text, type = 'success') => {

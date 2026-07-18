@@ -6,7 +6,7 @@ const PharmacyStock = require('../models/PharmacyStock');
 const { protect, authorize } = require('../middleware/auth');
 
 // Get all medications with filters
-router.get('/', protect, async (req, res) => {
+router.get('/', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const { beneficiaryId, active, chronicTreatment } = req.query;
     
@@ -38,7 +38,7 @@ router.get('/', protect, async (req, res) => {
 });
 
 // Get today's medication schedule for a beneficiary
-router.get('/schedule/today/:beneficiaryId', protect, async (req, res) => {
+router.get('/schedule/today/:beneficiaryId', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const schedule = await Medication.getTodaySchedule(req.params.beneficiaryId);
 
@@ -57,7 +57,7 @@ router.get('/schedule/today/:beneficiaryId', protect, async (req, res) => {
 });
 
 // Get medications needing refill
-router.get('/refill/needed', protect, async (req, res) => {
+router.get('/refill/needed', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const medications = await Medication.getNeedingRefill();
 
@@ -76,7 +76,7 @@ router.get('/refill/needed', protect, async (req, res) => {
 });
 
 // Get medication statistics
-router.get('/stats', protect, async (req, res) => {
+router.get('/stats', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const stats = await Medication.getStatistics();
 
@@ -94,7 +94,7 @@ router.get('/stats', protect, async (req, res) => {
 });
 
 // Get single medication
-router.get('/:id', protect, async (req, res) => {
+router.get('/:id', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const medication = await Medication.findById(req.params.id)
       .populate('beneficiary', 'nom prenom cin photoUrl')
@@ -123,7 +123,7 @@ router.get('/:id', protect, async (req, res) => {
 });
 
 // Create new medication prescription
-router.post('/', protect, authorize('admin', 'staff'), async (req, res) => {
+router.post('/', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const {
       beneficiaryId,
@@ -193,7 +193,7 @@ router.post('/', protect, authorize('admin', 'staff'), async (req, res) => {
 });
 
 // Log medication administration
-router.post('/:id/administer', protect, authorize('admin', 'staff'), async (req, res) => {
+router.post('/:id/administer', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const { time, administered = true, notes = '', quantityGiven = 1 } = req.body;
 
@@ -246,7 +246,7 @@ router.post('/:id/administer', protect, authorize('admin', 'staff'), async (req,
 });
 
 // Update medication stock
-router.patch('/:id/stock', protect, authorize('admin', 'staff'), async (req, res) => {
+router.patch('/:id/stock', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const { stock } = req.body;
 
@@ -278,7 +278,7 @@ router.patch('/:id/stock', protect, authorize('admin', 'staff'), async (req, res
 });
 
 // Update medication
-router.put('/:id', protect, authorize('admin', 'staff'), async (req, res) => {
+router.put('/:id', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const allowedUpdates = [
       'medicationName', 'dosage', 'frequency', 'times', 'withFood',

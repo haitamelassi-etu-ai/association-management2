@@ -14,11 +14,15 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
-        manualChunks: {
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'charts': ['recharts'],
-          'pdf': ['jspdf', 'jspdf-autotable'],
-          'utils': ['axios', 'html2canvas']
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined
+          if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
+            return 'react-vendor'
+          }
+          if (id.includes('recharts')) return 'charts'
+          if (id.includes('jspdf')) return 'pdf'
+          if (id.includes('axios') || id.includes('html2canvas')) return 'utils'
+          return undefined
         }
       }
     }

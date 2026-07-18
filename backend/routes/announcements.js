@@ -8,7 +8,7 @@ const {
 const { protect, authorize } = require('../middleware/auth');
 
 router.get('/', protect, getAnnouncements);
-router.post('/', protect, authorize('admin', 'staff'), createAnnouncement);
+router.post('/', protect, authorize('admin', 'responsable', 'staff'), createAnnouncement);
 router.delete('/:id', protect, authorize('admin'), deleteAnnouncement);
 
 module.exports = router;

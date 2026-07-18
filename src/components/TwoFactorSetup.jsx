@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { API_URL, getAuthHeaders } from '../utils/api'
 import './TwoFactorSetup.css'
 
 function TwoFactorSetup({ onClose, onSuccess }) {
@@ -12,18 +13,13 @@ function TwoFactorSetup({ onClose, onSuccess }) {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
-
   const handleSetup = async () => {
     setLoading(true)
     setError('')
     try {
-      const token = localStorage.getItem('professionalToken')
-      const response = await fetch(`${API_URL}/api/2fa/setup`, {
+      const response = await fetch(`${API_URL}/2fa/setup`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: getAuthHeaders()
       })
       const data = await response.json()
       if (data.success) {
@@ -49,13 +45,9 @@ function TwoFactorSetup({ onClose, onSuccess }) {
     setLoading(true)
     setError('')
     try {
-      const token = localStorage.getItem('professionalToken')
-      const response = await fetch(`${API_URL}/api/2fa/verify`, {
+      const response = await fetch(`${API_URL}/2fa/verify`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ token: verificationCode })
       })
       const data = await response.json()

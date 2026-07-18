@@ -7,7 +7,7 @@ const MealDistribution = require('../models/MealDistribution');
 const { protect, authorize } = require('../middleware/auth');
 
 // Financial Summary Report
-router.get('/financial', protect, authorize('admin', 'staff'), async (req, res) => {
+router.get('/financial', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
     
@@ -84,7 +84,7 @@ router.get('/financial', protect, authorize('admin', 'staff'), async (req, res) 
 });
 
 // Services Statistics Report
-router.get('/services', protect, authorize('admin', 'staff'), async (req, res) => {
+router.get('/services', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
     
@@ -183,7 +183,7 @@ router.get('/services', protect, authorize('admin', 'staff'), async (req, res) =
 });
 
 // Beneficiary Progress Tracking Report
-router.get('/beneficiary-progress/:id', protect, authorize('admin', 'staff'), async (req, res) => {
+router.get('/beneficiary-progress/:id', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const beneficiary = await Beneficiary.findById(req.params.id)
       .populate('responsable', 'name email');
@@ -288,7 +288,7 @@ router.get('/beneficiary-progress/:id', protect, authorize('admin', 'staff'), as
 });
 
 // Overall Dashboard Report
-router.get('/dashboard', protect, authorize('admin', 'staff'), async (req, res) => {
+router.get('/dashboard', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const today = new Date();
     const thirtyDaysAgo = new Date(today);
@@ -391,7 +391,7 @@ router.get('/dashboard', protect, authorize('admin', 'staff'), async (req, res) 
 });
 
 // Export report as detailed JSON
-router.get('/export/:type', protect, authorize('admin', 'staff'), async (req, res) => {
+router.get('/export/:type', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const { type } = req.params;
     const { startDate, endDate } = req.query;

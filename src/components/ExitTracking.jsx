@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './ExitTracking.css';
-import { API_URL } from '../utils/api';
+import { API_URL, getAuthToken } from '../utils/api';
 import ProfessionalLayout from '../professional/ProfessionalLayout';
 
 const ExitTracking = () => {
@@ -47,7 +47,7 @@ const ExitTracking = () => {
       const userData = JSON.parse(professionalUser);
       return userData.token;
     }
-    return localStorage.getItem('token');
+    return getAuthToken();
   };
 
   // Monitor online/offline status

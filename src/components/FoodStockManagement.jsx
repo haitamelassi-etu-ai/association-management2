@@ -1,13 +1,189 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import ExcelJS from 'exceljs';
-import { saveAs } from 'file-saver';
 import { PieChart, Pie, Cell, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { API_URL } from '../utils/api';
+import {
+  Archive,
+  BarChart3,
+  CalendarDays,
+  Camera,
+  ClipboardList,
+  Download,
+  Factory,
+  FileSpreadsheet,
+  FileText,
+  Package,
+  PackageCheck,
+  Plus,
+  Printer,
+  RefreshCcw,
+  Search,
+  TriangleAlert,
+  Upload,
+  UtensilsCrossed,
+  Wallet
+} from 'lucide-react';
+import { API_URL, getAuthToken } from '../utils/api';
 import './FoodStockManagement.css';
 import ProfessionalLayout from '../professional/ProfessionalLayout';
 import BarcodeScanner from './BarcodeScanner';
+
+const loadExcelExportTools = async () => {
+  const [{ default: ExcelJS }, { saveAs }] = await Promise.all([
+    import('exceljs'),
+    import('file-saver')
+  ]);
+
+  return { ExcelJS, saveAs };
+};
+
+const CLEAN_CATEGORY_LABELS = {
+  'fruits-legumes': 'Fruits & légumes',
+  'viandes-poissons': 'Viandes & poissons',
+  'produits-laitiers': 'Produits laitiers',
+  'cereales-pains': 'Céréales & pains',
+  conserves: 'Conserves',
+  boissons: 'Boissons',
+  autres: 'Autres'
+};
+
+const STOCK_TABS = [
+  { id: 'stock', label: 'Stock', icon: Package },
+  { id: 'history', label: 'Sorties & consommation', icon: Upload },
+  { id: 'dashboard', label: 'Valeur', icon: Wallet },
+  { id: 'reorder', label: 'Réapprovisionnement', icon: RefreshCcw },
+  { id: 'suppliers', label: 'Fournisseurs', icon: Factory },
+  { id: 'meals', label: 'Repas', icon: UtensilsCrossed },
+  { id: 'charts', label: 'Graphiques', icon: BarChart3 },
+  { id: 'calendar', label: 'Calendrier', icon: CalendarDays }
+];
+
+function FoodStockHero({ actions, onAdd }) {
+  return (
+    <section className="food-stock-hero">
+      <div>
+        <p className="food-stock-kicker">Logistique</p>
+        <h1>Stock alimentaire</h1>
+        <p>
+          Suivi des produits, alertes critiques, inventaire et mouvements de sortie.
+        </p>
+      </div>
+      <div className="food-stock-actions-pro">
+        {actions.map((action) => {
+          const Icon = action.icon;
+          return (
+            <button
+              key={action.label}
+              type="button"
+              className="stock-tool-btn"
+              onClick={action.onClick}
+              disabled={action.disabled}
+            >
+              <Icon size={16} />
+              <span>{action.label}</span>
+            </button>
+          );
+        })}
+        <button type="button" className="stock-tool-btn primary" onClick={onAdd}>
+          <Plus size={16} />
+          <span>Ajouter</span>
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function FoodStockKpis({ statistics, alerts }) {
+  if (!statistics) return null;
+
+  const available = statistics.statuts.find((status) => status._id === 'disponible')?.count || 0;
+  const alertCount = alerts.expiration.length + alerts.stock.length;
+  const kpis = [
+    { label: 'Articles total', value: statistics.total, icon: Package },
+    { label: 'Valeur totale', value: `${statistics.valeurTotale.toFixed(2)} DH`, icon: Wallet },
+    { label: 'Disponibles', value: available, icon: PackageCheck },
+    { label: 'Alertes', value: alertCount, icon: TriangleAlert, alert: true }
+  ];
+
+  return (
+    <div className="stock-kpi-grid-pro">
+      {kpis.map((item) => {
+        const Icon = item.icon;
+        return (
+          <article key={item.label} className={`stock-kpi-card ${item.alert ? 'alert' : ''}`}>
+            <div className="stock-kpi-icon"><Icon size={22} /></div>
+            <div>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+            </div>
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
+function FoodStockTabs({ activeTab, onChange }) {
+  return (
+    <div className="stock-tabs-pro" role="tablist" aria-label="Modules du stock alimentaire">
+      {STOCK_TABS.map((tabItem) => {
+        const Icon = tabItem.icon;
+        return (
+          <button
+            key={tabItem.id}
+            type="button"
+            className={`stock-tab-pro ${activeTab === tabItem.id ? 'active' : ''}`}
+            onClick={() => onChange(tabItem.id)}
+          >
+            <Icon size={16} />
+            <span>{tabItem.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function StockFilters({ filters, onChange, categories }) {
+  const setFilter = (key, value) => onChange({ ...filters, [key]: value });
+
+  return (
+    <div className="filters-bar-pro">
+      <select
+        value={filters.statut}
+        onChange={(event) => setFilter('statut', event.target.value)}
+        className="filter-select"
+      >
+        <option value="">Tous les statuts</option>
+        <option value="disponible">Disponible</option>
+        <option value="faible">Faible</option>
+        <option value="critique">Critique</option>
+        <option value="expire">Expiré</option>
+      </select>
+
+      <select
+        value={filters.categorie}
+        onChange={(event) => setFilter('categorie', event.target.value)}
+        className="filter-select"
+      >
+        <option value="">Toutes les catégories</option>
+        {categories.map((category) => (
+          <option key={category.value} value={category.value}>
+            {CLEAN_CATEGORY_LABELS[category.value] || category.label}
+          </option>
+        ))}
+      </select>
+
+      <input
+        type="text"
+        placeholder="Rechercher un article..."
+        value={filters.search}
+        onChange={(event) => setFilter('search', event.target.value)}
+        className="filter-search"
+      />
+    </div>
+  );
+}
 
 const FoodStockManagement = () => {
   const navigate = useNavigate();
@@ -15,6 +191,7 @@ const FoodStockManagement = () => {
   const [statistics, setStatistics] = useState(null);
   const [alerts, setAlerts] = useState({ expiration: [], stock: [] });
   const [loading, setLoading] = useState(true);
+  const [moduleAllowed, setModuleAllowed] = useState(true);
   
   // Filtres
   const [filters, setFilters] = useState({
@@ -122,19 +299,37 @@ const FoodStockManagement = () => {
     { value: 'cereales-pains', label: '🍞 Céréales & Pains', icon: '🌾' },
     { value: 'conserves', label: '🥫 Conserves', icon: '📦' },
     { value: 'boissons', label: '🥤 Boissons', icon: '🧃' },
-    { value: 'epices-condiments', label: '🌶️ Épices & Condiments', icon: '🧂' },
-    { value: 'huiles-graisses', label: '🫒 Huiles & Graisses', icon: '🛢️' },
-    { value: 'sucre-confiserie', label: '🍬 Sucre & Confiserie', icon: '🍯' },
-    { value: 'produits-nettoyage', label: '🧹 Produits de Nettoyage', icon: '🧴' },
     { value: 'autres', label: '📦 Autres', icon: '🏪' }
   ];
 
-  const unites = ['kg', 'g', 'L', 'ml', 'unités', 'boîtes', 'sachets', 'bouteilles', 'pièces', 'paquets'];
+  const unites = ['kg', 'g', 'L', 'ml', 'unités', 'boîtes', 'sachets'];
 
   // ═══════════════════════════════════════
+  const cleanCategoryLabels = {
+    'fruits-legumes': 'Fruits & légumes',
+    'viandes-poissons': 'Viandes & poissons',
+    'produits-laitiers': 'Produits laitiers',
+    'cereales-pains': 'Céréales & pains',
+    conserves: 'Conserves',
+    boissons: 'Boissons',
+    autres: 'Autres'
+  };
+
+  const stockTabs = [
+    { id: 'stock', label: 'Stock', icon: Package },
+    { id: 'history', label: 'Sorties & consommation', icon: Upload },
+    { id: 'dashboard', label: 'Valeur', icon: Wallet },
+    { id: 'reorder', label: 'Réapprovisionnement', icon: RefreshCcw },
+    { id: 'suppliers', label: 'Fournisseurs', icon: Factory },
+    { id: 'meals', label: 'Repas', icon: UtensilsCrossed },
+    { id: 'charts', label: 'Graphiques', icon: BarChart3 },
+    { id: 'calendar', label: 'Calendrier', icon: CalendarDays }
+  ];
+
   // Export Excel professionnel (ExcelJS)
   // ═══════════════════════════════════════
   const exportToExcel = async () => {
+    const { ExcelJS, saveAs } = await loadExcelExportTools();
     const wb = new ExcelJS.Workbook();
     wb.creator = 'ADDEL ALWAREF';
     wb.created = new Date();
@@ -749,7 +944,7 @@ const FoodStockManagement = () => {
 
   // Récupérer le token
   const getAuthHeaders = () => {
-    const token = localStorage.getItem('professionalToken') || localStorage.getItem('token');
+    const token = getAuthToken();
     if (!token) {
       console.error('❌ No token found! User must login first.');
       navigate('/login');
@@ -759,11 +954,24 @@ const FoodStockManagement = () => {
     return { headers: { Authorization: `Bearer ${token}` } };
   };
 
+  useEffect(() => {
+    const userData = localStorage.getItem('professionalUser');
+    if (!userData) return;
+    try {
+      const parsedUser = JSON.parse(userData);
+      const hasStock = parsedUser?.association ? Boolean(parsedUser.association.hasStock) : true;
+      if (!hasStock) setModuleAllowed(false);
+    } catch {
+      setModuleAllowed(true);
+    }
+  }, []);
+
   // Charger les données avec debounce pour la recherche
   const debounceRef = useRef(null);
   const isFirstLoad = useRef(true);
 
   useEffect(() => {
+    if (!moduleAllowed) return;
     if (isFirstLoad.current) {
       isFirstLoad.current = false;
       fetchData(true);
@@ -775,7 +983,7 @@ const FoodStockManagement = () => {
       fetchData(false);
     }, 400);
     return () => clearTimeout(debounceRef.current);
-  }, [filters]);
+  }, [filters, moduleAllowed]);
 
   const fetchData = async (showLoader = false) => {
     try {
@@ -980,6 +1188,7 @@ const FoodStockManagement = () => {
     if (!file) return;
     setImportLoading(true);
     try {
+      const { ExcelJS } = await loadExcelExportTools();
       const wb = new ExcelJS.Workbook();
       const buffer = await file.arrayBuffer();
       await wb.xlsx.load(buffer);
@@ -1103,6 +1312,7 @@ const FoodStockManagement = () => {
   };
 
   const downloadImportTemplate = async () => {
+    const { ExcelJS, saveAs } = await loadExcelExportTools();
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('Template Import');
 
@@ -1201,6 +1411,7 @@ const FoodStockManagement = () => {
   // ═══════════════════════════════════════
   const exportHistoryToExcel = async () => {
     if (!globalHistory || globalHistory.history.length === 0) { alert('Pas de données à exporter'); return; }
+    const { ExcelJS, saveAs } = await loadExcelExportTools();
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('Historique Mouvements');
     const hdr = ws.addRow(['Date', 'Produit', 'Catégorie', 'Action', 'Type Sortie', 'Quantité', 'Restant', 'Destination', 'Notes', 'Utilisateur']);
@@ -1502,6 +1713,17 @@ const FoodStockManagement = () => {
     return days;
   };
 
+  if (!moduleAllowed) {
+    return (
+      <ProfessionalLayout>
+        <div className="module-locked">
+          <h2>Module Stock</h2>
+          <p>Ce module est desactive pour cette association.</p>
+        </div>
+      </ProfessionalLayout>
+    );
+  }
+
   if (loading) {
     return (
       <ProfessionalLayout noPadding>
@@ -1510,9 +1732,21 @@ const FoodStockManagement = () => {
     );
   }
 
+  const topStockActions = [
+    { label: 'Imprimer', icon: Printer, onClick: printStock },
+    { label: 'Fiche inventaire', icon: ClipboardList, onClick: printInventorySheet },
+    { label: 'Exporter', icon: FileSpreadsheet, onClick: exportToExcel },
+    { label: 'Importer', icon: Upload, onClick: () => { setShowImportModal(true); fetchImportBatches(); } },
+    { label: 'Template', icon: Download, onClick: downloadImportTemplate },
+    { label: 'Inventaire', icon: Archive, onClick: openInventoryModal },
+    { label: scanLoading ? 'Recherche...' : 'Scanner', icon: Camera, onClick: () => setShowScanner(true), disabled: scanLoading }
+  ];
+
   return (
     <ProfessionalLayout noPadding>
     <div className="food-stock-container">
+      <FoodStockHero actions={topStockActions} onAdd={() => setShowAddModal(true)} />
+
       <div className="food-stock-header">
         <h1>🏪 Gestion du Stock Alimentaire</h1>
         <div className="header-actions">
@@ -1553,6 +1787,8 @@ const FoodStockManagement = () => {
       )}
 
       {/* Statistiques */}
+      <FoodStockKpis statistics={statistics} alerts={alerts} />
+
       {statistics && (
         <div className="stats-grid">
           <div className="stat-card">
@@ -1622,6 +1858,8 @@ const FoodStockManagement = () => {
       )}
 
       {/* Tab Navigation */}
+      <FoodStockTabs activeTab={activeTab} onChange={setActiveTab} />
+
       <div className="stock-tabs">
         <button className={`tab-btn ${activeTab === 'stock' ? 'active' : ''}`} onClick={() => setActiveTab('stock')}>
           📋 Stock
@@ -1656,6 +1894,8 @@ const FoodStockManagement = () => {
       <>
 
       {/* Filtres */}
+      <StockFilters filters={filters} onChange={setFilters} categories={categories} />
+
       <div className="filters-bar">
         <select
           value={filters.statut}
@@ -1676,7 +1916,7 @@ const FoodStockManagement = () => {
         >
           <option value="">Toutes les catégories</option>
           {categories.map(cat => (
-            <option key={cat.value} value={cat.value}>{cat.label}</option>
+            <option key={cat.value} value={cat.value}>{CLEAN_CATEGORY_LABELS[cat.value] || cleanCategoryLabels[cat.value] || categoryLabels[cat.value] || cat.label}</option>
           ))}
         </select>
 

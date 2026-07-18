@@ -4,7 +4,7 @@ const Communication = require('../models/Communication');
 const { protect, authorize } = require('../middleware/auth');
 
 // Get all communications
-router.get('/', protect, async (req, res) => {
+router.get('/', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const { type, status, priorite, search } = req.query;
     let query = {};
@@ -32,7 +32,7 @@ router.get('/', protect, async (req, res) => {
 });
 
 // Get communication stats
-router.get('/stats', protect, async (req, res) => {
+router.get('/stats', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const [total, brouillons, envoyes, planifies, byType, byPriorite] = await Promise.all([
       Communication.countDocuments(),
@@ -53,7 +53,7 @@ router.get('/stats', protect, async (req, res) => {
 });
 
 // Get a single communication
-router.get('/:id', protect, async (req, res) => {
+router.get('/:id', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const comm = await Communication.findById(req.params.id)
       .populate('creePar', 'nom prenom')
@@ -78,7 +78,7 @@ router.get('/:id', protect, async (req, res) => {
 });
 
 // Create a communication
-router.post('/', protect, async (req, res) => {
+router.post('/', protect, authorize('admin', 'responsable'), async (req, res) => {
   try {
     const comm = await Communication.create({
       ...req.body,
@@ -93,7 +93,7 @@ router.post('/', protect, async (req, res) => {
 });
 
 // Update a communication
-router.put('/:id', protect, async (req, res) => {
+router.put('/:id', protect, authorize('admin', 'responsable'), async (req, res) => {
   try {
     const comm = await Communication.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
@@ -110,7 +110,7 @@ router.put('/:id', protect, async (req, res) => {
 });
 
 // Send a communication (change status to 'envoye')
-router.post('/:id/send', protect, async (req, res) => {
+router.post('/:id/send', protect, authorize('admin', 'responsable'), async (req, res) => {
   try {
     const comm = await Communication.findByIdAndUpdate(
       req.params.id,
@@ -128,7 +128,7 @@ router.post('/:id/send', protect, async (req, res) => {
 });
 
 // Reply to a communication
-router.post('/:id/reply', protect, async (req, res) => {
+router.post('/:id/reply', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const comm = await Communication.findById(req.params.id);
     if (!comm) {

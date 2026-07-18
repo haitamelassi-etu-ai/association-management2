@@ -1,6 +1,11 @@
 const mongoose = require('mongoose');
 
 const beneficiarySchema = new mongoose.Schema({
+  association: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Association',
+    index: true
+  },
   // ─── Numéro d'ordre ───
   numeroOrdre: {
     type: Number,
@@ -245,5 +250,6 @@ beneficiarySchema.virtual('age').get(function() {
 // Index for search
 beneficiarySchema.index({ nom: 'text', prenom: 'text', cin: 'text' });
 beneficiarySchema.index({ statut: 1, dateEntree: -1 });
+beneficiarySchema.index({ association: 1, statut: 1, dateEntree: -1 });
 
 module.exports = mongoose.model('Beneficiary', beneficiarySchema);

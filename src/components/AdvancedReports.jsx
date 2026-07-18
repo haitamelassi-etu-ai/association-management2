@@ -5,7 +5,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
 import './AdvancedReports.css';
-import { API_URL } from '../utils/api';
+import { API_URL, getAuthHeaders } from '../utils/api';
 import ProfessionalLayout from '../professional/ProfessionalLayout';
 
 const AdvancedReports = () => {
@@ -21,7 +21,7 @@ const AdvancedReports = () => {
   const [dashboardData, setDashboardData] = useState(null);
   const [message, setMessage] = useState({ text: '', type: '' });
 
-  const COLORS = ['#667eea', '#f093fb', '#4ade80', '#fbbf24', '#f87171', '#a78bfa'];
+  const COLORS = ['#caa24a', '#a0805a', '#1f6d3b', '#f0d489', '#b82920', '#7a6f5e'];
 
   const showMessage = (text, type = 'success') => {
     setMessage({ text, type });
@@ -31,11 +31,10 @@ const AdvancedReports = () => {
   const fetchFinancialReport = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
       const response = await fetch(
         `${API_URL}/reports/advanced/financial?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`,
         {
-          headers: { 'Authorization': `Bearer ${token}` }
+          headers: getAuthHeaders()
         }
       );
 
@@ -54,11 +53,10 @@ const AdvancedReports = () => {
   const fetchServicesReport = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
       const response = await fetch(
         `${API_URL}/reports/advanced/services?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`,
         {
-          headers: { 'Authorization': `Bearer ${token}` }
+          headers: getAuthHeaders()
         }
       );
 
@@ -77,11 +75,10 @@ const AdvancedReports = () => {
   const fetchDashboardReport = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
       const response = await fetch(
         `${API_URL}/reports/advanced/dashboard`,
         {
-          headers: { 'Authorization': `Bearer ${token}` }
+          headers: getAuthHeaders()
         }
       );
 
@@ -246,7 +243,7 @@ const AdvancedReports = () => {
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Line type="monotone" dataKey="count" stroke="#667eea" strokeWidth={2} />
+                  <Line type="monotone" dataKey="count" stroke="#caa24a" strokeWidth={2} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -260,7 +257,7 @@ const AdvancedReports = () => {
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Line type="monotone" dataKey="count" stroke="#4ade80" strokeWidth={2} />
+                  <Line type="monotone" dataKey="count" stroke="#1f6d3b" strokeWidth={2} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -341,7 +338,7 @@ const AdvancedReports = () => {
                   labelLine={false}
                   label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                   outerRadius={100}
-                  fill="#8884d8"
+                  fill="#caa24a"
                   dataKey="value"
                 >
                   {[0, 1].map((entry, index) => (
@@ -416,9 +413,9 @@ const AdvancedReports = () => {
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="total" fill="#667eea" name={t('reports.total')} />
-                  <Bar dataKey="served" fill="#4ade80" name={t('reports.served')} />
-                  <Bar dataKey="pending" fill="#fbbf24" name={t('reports.pending')} />
+                  <Bar dataKey="total" fill="#caa24a" name={t('reports.total')} />
+                  <Bar dataKey="served" fill="#1f6d3b" name={t('reports.served')} />
+                  <Bar dataKey="pending" fill="#f0d489" name={t('reports.pending')} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -434,7 +431,7 @@ const AdvancedReports = () => {
                     labelLine={false}
                     label={({ _id, count }) => `${_id}: ${count}`}
                     outerRadius={100}
-                    fill="#8884d8"
+                    fill="#caa24a"
                     dataKey="count"
                   >
                     {servicesData.beneficiaries.byStatus.map((entry, index) => (

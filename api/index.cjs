@@ -5,6 +5,7 @@ const mongoose = require('mongoose');
 
 // Routes (backend is CommonJS)
 const authRoutes = require('../backend/routes/auth');
+const associationsRoutes = require('../backend/routes/associations');
 const usersRoutes = require('../backend/routes/users');
 const beneficiariesRoutes = require('../backend/routes/beneficiaries');
 const attendanceRoutes = require('../backend/routes/attendance');
@@ -28,6 +29,14 @@ const roomRoutes = require('../backend/routes/rooms');
 const healthRecordRoutes = require('../backend/routes/healthRecords');
 const communicationRoutes = require('../backend/routes/communications');
 const aiRoutes = require('../backend/routes/ai');
+const transportRoutes = require('../backend/routes/transport');
+const approvalsRoutes = require('../backend/routes/approvals');
+const auditLogRoutes = require('../backend/routes/auditLogs');
+const savedViewsRoutes = require('../backend/routes/savedViews');
+const schedulesRoutes = require('../backend/routes/schedules');
+const settingsRoutes = require('../backend/routes/settings');
+const ticketsRoutes = require('../backend/routes/tickets');
+const twoFactorRoutes = require('../backend/routes/twoFactor');
 
 const app = express();
 
@@ -37,6 +46,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Mount routes (expecting /api/*)
 app.use('/api/auth', authRoutes);
+app.use('/api/associations', associationsRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/beneficiaries', beneficiariesRoutes);
 app.use('/api/attendance', attendanceRoutes);
@@ -58,8 +68,16 @@ app.use('/api/volunteers', volunteerRoutes);
 app.use('/api/financial', financialRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/health-records', healthRecordRoutes);
+app.use('/api/transport', transportRoutes);
 app.use('/api/communications', communicationRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/approvals', approvalsRoutes);
+app.use('/api/audit-logs', auditLogRoutes);
+app.use('/api/saved-views', savedViewsRoutes);
+app.use('/api/schedules', schedulesRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/api/tickets', ticketsRoutes);
+app.use('/api/2fa', twoFactorRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({

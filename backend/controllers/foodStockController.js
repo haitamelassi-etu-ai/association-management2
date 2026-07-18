@@ -1,16 +1,161 @@
 const FoodStock = require('../models/FoodStock');
 const { notifyAdmins } = require('../utils/notificationHelper');
+const { logAudit } = require('../utils/auditLogger');
+
+const getAssociationId = (req) => req.user?.association?._id || req.user?.association;
+
+const requireAssociation = (req, res) => {
+  const associationId = getAssociationId(req);
+  if (!associationId) {
+    res.status(403).json({ message: 'Association non configuree' });
+    return null;
+  }
+  return associationId;
+};
+
+const buildMovementHistory = ({
+  action,
+  quantite,
+  quantiteRestante,
+  utilisateur,
+  raison,
+  typeSortie,
+  destination
+}) => ({
+  action,
+  quantite,
+  quantiteRestante,
+  utilisateur,
+  notes: raison || '',
+  ...(typeSortie ? { typeSortie } : {}),
+  ...(destination ? { destination } : {})
+});
+
+const applyAtomicStockMovement = async ({
+  itemId,
+  associationId,
+  quantite,
+  direction,
+  action,
+  utilisateur,
+  raison = '',
+  typeSortie,
+  destination = '',
+  maxRetries = 3
+}) => {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const current = await FoodStock.findOne({ _id: itemId, association: associationId });
+    if (!current) return { status: 'not_found' };
+
+    const quantiteAvant = Number(current.quantite);
+    const quantiteApres = direction === 'add'
+      ? quantiteAvant + quantite
+      : quantiteAvant - quantite;
+
+    if (quantiteApres < 0) {
+      return { status: 'insufficient', item: current, disponible: quantiteAvant };
+    }
+
+    const statut = FoodStock.computeStatus(quantiteApres, current.seuilCritique, current.dateExpiration);
+    const historyEntry = buildMovementHistory({
+      action,
+      quantite,
+      quantiteRestante: quantiteApres,
+      utilisateur,
+      raison,
+      typeSortie,
+      destination
+    });
+
+    const updated = await FoodStock.findOneAndUpdate(
+      {
+        _id: itemId,
+        association: associationId,
+        quantite: quantiteAvant
+      },
+      {
+        $inc: { quantite: direction === 'add' ? quantite : -quantite },
+        $set: { statut },
+        $push: { historique: historyEntry }
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (updated) {
+      return {
+        status: 'success',
+        item: updated,
+        quantiteAvant,
+        quantiteApres
+      };
+    }
+  }
+
+  return { status: 'conflict' };
+};
+
+const applyAtomicInventoryCount = async ({
+  itemId,
+  associationId,
+  quantitePhysique,
+  utilisateur,
+  notes = '',
+  maxRetries = 3
+}) => {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const current = await FoodStock.findOne({ _id: itemId, association: associationId });
+    if (!current) return { status: 'not_found' };
+
+    const quantiteAvant = Number(current.quantite);
+    const difference = quantitePhysique - quantiteAvant;
+    const statut = FoodStock.computeStatus(quantitePhysique, current.seuilCritique, current.dateExpiration);
+    const historyEntry = buildMovementHistory({
+      action: 'modification',
+      quantite: Math.abs(difference),
+      quantiteRestante: quantitePhysique,
+      utilisateur,
+      raison: `Inventaire: ${quantiteAvant} -> ${quantitePhysique} (${difference > 0 ? '+' : ''}${difference})${notes ? ' | ' + notes : ''}`
+    });
+
+    const updated = await FoodStock.findOneAndUpdate(
+      {
+        _id: itemId,
+        association: associationId,
+        quantite: quantiteAvant
+      },
+      {
+        $set: { quantite: quantitePhysique, statut },
+        $push: { historique: historyEntry }
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (updated) {
+      return {
+        status: 'success',
+        item: updated,
+        quantiteAvant,
+        quantiteApres: quantitePhysique,
+        difference
+      };
+    }
+  }
+
+  return { status: 'conflict' };
+};
 
 // Obtenir tous les articles du stock
 exports.getAllStock = async (req, res) => {
   try {
     const { statut, categorie, search } = req.query;
+    const associationId = requireAssociation(req, res);
+    if (!associationId) return;
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 500;
     const skip = (page - 1) * limit;
 
     // Construire le filtre
-    let filter = {};
+    let filter = { association: associationId };
     
     if (statut) {
       filter.statut = statut;
@@ -52,7 +197,10 @@ exports.getAllStock = async (req, res) => {
 // Obtenir un article spécifique
 exports.getStockItem = async (req, res) => {
   try {
-    const item = await FoodStock.findById(req.params.id)
+    const associationId = requireAssociation(req, res);
+    if (!associationId) return;
+
+    const item = await FoodStock.findOne({ _id: req.params.id, association: associationId })
       .populate('historique.utilisateur', 'name email');
     
     if (!item) {
@@ -69,25 +217,17 @@ exports.getStockItem = async (req, res) => {
 // Créer un nouvel article
 exports.createStockItem = async (req, res) => {
   try {
-    const body = { ...req.body };
-
-    // Clean empty dateExpiration (empty string can't cast to Date)
-    if (!body.dateExpiration || String(body.dateExpiration).trim() === '') {
-      delete body.dateExpiration;
-    }
-
-    // Clean empty barcode to avoid unique constraint on empty strings
-    if (!body.barcode || String(body.barcode).trim() === '') {
-      delete body.barcode;
-    }
+    const associationId = requireAssociation(req, res);
+    if (!associationId) return;
 
     const itemData = {
-      ...body,
-      quantiteInitiale: body.quantite,
+      ...req.body,
+      association: associationId,
+      quantiteInitiale: req.body.quantite,
       historique: [{
         action: 'ajout',
-        quantite: body.quantite,
-        quantiteRestante: body.quantite,
+        quantite: req.body.quantite,
+        quantiteRestante: req.body.quantite,
         utilisateur: req.user.id,
         notes: 'Article ajouté au stock'
       }]
@@ -106,6 +246,21 @@ exports.createStockItem = async (req, res) => {
       createdBy: req.user.id
     });
 
+    await logAudit({
+      user: req.user,
+      action: 'create',
+      resource: 'foodStock',
+      resourceId: item._id,
+      details: {
+        nom: item.nom,
+        categorie: item.categorie,
+        quantite: item.quantite,
+        unite: item.unite
+      },
+      newValues: item.toObject(),
+      req
+    });
+
     res.status(201).json(item);
   } catch (error) {
     console.error('Erreur lors de la création de l\'article:', error);
@@ -116,13 +271,16 @@ exports.createStockItem = async (req, res) => {
 // Rechercher un article par code-barres
 exports.getByBarcode = async (req, res) => {
   try {
+    const associationId = requireAssociation(req, res);
+    if (!associationId) return;
+
     const { barcode } = req.params;
 
     if (!barcode || barcode.trim() === '') {
       return res.status(400).json({ message: 'Le code-barres est requis' });
     }
 
-    const item = await FoodStock.findOne({ barcode: barcode.trim() });
+    const item = await FoodStock.findOne({ barcode: barcode.trim(), association: associationId });
 
     if (!item) {
       return res.status(404).json({ message: 'Produit non trouvé', barcode });
@@ -138,23 +296,16 @@ exports.getByBarcode = async (req, res) => {
 // Mettre à jour un article
 exports.updateStockItem = async (req, res) => {
   try {
-    // Clean empty dateExpiration before update
-    if (req.body.dateExpiration !== undefined && (!req.body.dateExpiration || String(req.body.dateExpiration).trim() === '')) {
-      req.body.dateExpiration = null;
-    }
+    const associationId = requireAssociation(req, res);
+    if (!associationId) return;
 
-    const item = await FoodStock.findById(req.params.id);
+    const item = await FoodStock.findOne({ _id: req.params.id, association: associationId });
     
     if (!item) {
       return res.status(404).json({ message: 'Article non trouvé' });
     }
 
-    // Clean empty barcode to avoid unique constraint
-    if (req.body.barcode !== undefined && (!req.body.barcode || String(req.body.barcode).trim() === '')) {
-      delete req.body.barcode;
-      item.barcode = undefined;
-    }
-
+    const previousValues = item.toObject();
     const ancienneQuantite = item.quantite;
     const nouvelleQuantite = req.body.quantite !== undefined ? Number(req.body.quantite) : undefined;
     
@@ -166,12 +317,12 @@ exports.updateStockItem = async (req, res) => {
     });
 
     // Si la quantité a changé, enregistrer dans l'historique
-    if (req.body.quantite && req.body.quantite !== ancienneQuantite) {
-      const difference = req.body.quantite - ancienneQuantite;
+    if (nouvelleQuantite !== undefined && !Number.isNaN(nouvelleQuantite) && nouvelleQuantite !== ancienneQuantite) {
+      const difference = nouvelleQuantite - ancienneQuantite;
       item.historique.push({
         action: difference > 0 ? 'reapprovisionnement' : 'modification',
         quantite: Math.abs(difference),
-        quantiteRestante: req.body.quantite,
+        quantiteRestante: nouvelleQuantite,
         utilisateur: req.user.id,
         notes: req.body.notes || 'Modification de la quantité'
       });
@@ -191,6 +342,22 @@ exports.updateStockItem = async (req, res) => {
         createdBy: req.user.id
       });
     }
+
+    await logAudit({
+      user: req.user,
+      action: 'update',
+      resource: 'foodStock',
+      resourceId: item._id,
+      details: {
+        nom: item.nom,
+        changedFields: Object.keys(req.body).filter((key) => key !== 'historique'),
+        ancienneQuantite,
+        nouvelleQuantite: item.quantite
+      },
+      previousValues,
+      newValues: item.toObject(),
+      req
+    });
     res.json(item);
   } catch (error) {
     console.error('Erreur lors de la mise à jour de l\'article:', error);
@@ -201,8 +368,12 @@ exports.updateStockItem = async (req, res) => {
 // Ajuster le stock (ajouter ou retirer)
 exports.adjustStock = async (req, res) => {
   try {
-    const { quantite, type, raison } = req.body;
-    const item = await FoodStock.findById(req.params.id);
+    const associationId = requireAssociation(req, res);
+    if (!associationId) return;
+
+    const { type, raison } = req.body;
+    const quantite = Number(req.body.quantite);
+    const item = await FoodStock.findOne({ _id: req.params.id, association: associationId });
 
     if (!item) {
       return res.status(404).json({ message: 'Article non trouvé' });
@@ -212,43 +383,64 @@ exports.adjustStock = async (req, res) => {
       return res.status(400).json({ message: 'La quantité doit être supérieure à 0' });
     }
 
-    if (type === 'add') {
-      item.quantite += quantite;
-    } else if (type === 'remove') {
-      if (quantite > item.quantite) {
-        return res.status(400).json({
-          message: 'Quantité à retirer supérieure au stock disponible',
-          disponible: item.quantite
-        });
-      }
-      item.quantite -= quantite;
-    } else {
-      return res.status(400).json({ message: 'Type doit être "add" ou "remove"' });
+    if (!['add', 'remove'].includes(type)) {
+      return res.status(400).json({ message: 'Type doit etre "add" ou "remove"' });
     }
 
-    // Recalculer le statut
-    if (item.quantite <= 0) {
-      item.statut = 'critique';
-    } else if (item.quantite <= item.seuilCritique) {
-      item.statut = 'faible';
-    } else {
-      item.statut = 'disponible';
+    const movement = await applyAtomicStockMovement({
+      itemId: req.params.id,
+      associationId,
+      quantite,
+      direction: type === 'add' ? 'add' : 'remove',
+      action: type === 'add' ? 'reapprovisionnement' : 'modification',
+      utilisateur: req.user.id,
+      raison: raison || (type === 'add' ? 'Approvisionnement' : 'Retrait')
+    });
+
+    if (movement.status === 'not_found') {
+      return res.status(404).json({ message: 'Article non trouve' });
+    }
+    if (movement.status === 'insufficient') {
+      return res.status(400).json({
+        message: 'Quantite a retirer superieure au stock disponible',
+        disponible: movement.disponible
+      });
+    }
+    if (movement.status === 'conflict') {
+      return res.status(409).json({ message: 'Stock modifie en meme temps. Reessayez.' });
     }
 
-    await item.save();
+    const { item: updatedItem, quantiteAvant, quantiteApres } = movement;
 
     const action = type === 'add' ? 'Approvisionnement' : 'Retrait';
     await notifyAdmins({
       type: 'info',
       title: `Stock Alimentaire - ${action}`,
-      message: `${item.nom}: ${type === 'add' ? '+' : '-'}${quantite} ${item.unite} (total: ${item.quantite})${raison ? ' - ' + raison : ''}`,
+      message: `${updatedItem.nom}: ${type === 'add' ? '+' : '-'}${quantite} ${updatedItem.unite} (total: ${updatedItem.quantite})${raison ? ' - ' + raison : ''}`,
       icon: type === 'add' ? '📦' : '📤',
       link: '/professional/food-stock',
-      metadata: { foodStockId: item._id, action: type, quantite, raison },
+      metadata: { foodStockId: updatedItem._id, action: type, quantite, raison },
       createdBy: req.user.id
     });
 
-    res.json(item);
+    await logAudit({
+      user: req.user,
+      action: 'update',
+      resource: 'foodStock',
+      resourceId: updatedItem._id,
+      details: {
+        operation: 'adjust',
+        type,
+        nom: updatedItem.nom,
+        quantite,
+        quantiteAvant,
+        quantiteApres,
+        raison
+      },
+      req
+    });
+
+    res.json(updatedItem);
   } catch (error) {
     console.error('Erreur ajustement stock:', error);
     res.status(400).json({ message: 'Erreur lors de l\'ajustement', error: error.message });
@@ -258,11 +450,21 @@ exports.adjustStock = async (req, res) => {
 // Consommer un article
 exports.consommerStock = async (req, res) => {
   try {
-    const { quantite, raison } = req.body;
-    const item = await FoodStock.findById(req.params.id);
+    const associationId = requireAssociation(req, res);
+    if (!associationId) return;
+
+    const { raison } = req.body;
+    const quantite = Number(req.body.quantite);
+    const item = await FoodStock.findOne({ _id: req.params.id, association: associationId });
     
     if (!item) {
       return res.status(404).json({ message: 'Article non trouvé' });
+    }
+
+    const quantiteAvant = item.quantite;
+
+    if (!quantite || quantite <= 0) {
+      return res.status(400).json({ message: 'La quantité doit être supérieure à 0' });
     }
 
     if (quantite > item.quantite) {
@@ -272,20 +474,58 @@ exports.consommerStock = async (req, res) => {
       });
     }
 
-    item.enregistrerConsommation(quantite, req.user.id, raison);
-    await item.save();
+    const movement = await applyAtomicStockMovement({
+      itemId: req.params.id,
+      associationId,
+      quantite,
+      direction: 'remove',
+      action: 'consommation',
+      utilisateur: req.user.id,
+      raison
+    });
+
+    if (movement.status === 'not_found') {
+      return res.status(404).json({ message: 'Article non trouve' });
+    }
+    if (movement.status === 'insufficient') {
+      return res.status(400).json({
+        message: 'Quantite demandee superieure a la quantite disponible',
+        disponible: movement.disponible
+      });
+    }
+    if (movement.status === 'conflict') {
+      return res.status(409).json({ message: 'Stock modifie en meme temps. Reessayez.' });
+    }
+
+    const { item: updatedItem, quantiteApres } = movement;
 
     await notifyAdmins({
       type: 'info',
       title: 'Stock Alimentaire - Consommation',
-      message: `${item.nom || 'Article'}: -${quantite} (reste ${item.quantite})`,
+      message: `${updatedItem.nom || 'Article'}: -${quantite} (reste ${updatedItem.quantite})`,
       icon: '🍽️',
       link: '/professional/food-stock',
-      metadata: { foodStockId: item._id, action: 'consume', quantite, raison },
+      metadata: { foodStockId: updatedItem._id, action: 'consume', quantite, raison },
       createdBy: req.user.id
     });
 
-    res.json(item);
+    await logAudit({
+      user: req.user,
+      action: 'update',
+      resource: 'foodStock',
+      resourceId: updatedItem._id,
+      details: {
+        operation: 'consommation',
+        nom: updatedItem.nom,
+        quantite,
+        quantiteAvant,
+        quantiteApres,
+        raison
+      },
+      req
+    });
+
+    res.json(updatedItem);
   } catch (error) {
     console.error('Erreur lors de la consommation:', error);
     res.status(400).json({ message: 'Erreur lors de la consommation', error: error.message });
@@ -295,8 +535,12 @@ exports.consommerStock = async (req, res) => {
 // Enregistrer une sortie de stock
 exports.sortieStock = async (req, res) => {
   try {
-    const { quantite, typeSortie, destination, raison } = req.body;
-    const item = await FoodStock.findById(req.params.id);
+    const associationId = requireAssociation(req, res);
+    if (!associationId) return;
+
+    const { typeSortie, destination, raison } = req.body;
+    const quantite = Number(req.body.quantite);
+    const item = await FoodStock.findOne({ _id: req.params.id, association: associationId });
     
     if (!item) {
       return res.status(404).json({ message: 'Article non trouvé' });
@@ -317,8 +561,34 @@ exports.sortieStock = async (req, res) => {
       return res.status(400).json({ message: 'Le type de sortie est obligatoire' });
     }
 
-    item.enregistrerSortie(quantite, req.user.id, typeSortie, destination, raison);
-    await item.save();
+    const quantiteAvant = item.quantite;
+
+    const movement = await applyAtomicStockMovement({
+      itemId: req.params.id,
+      associationId,
+      quantite,
+      direction: 'remove',
+      action: 'sortie',
+      utilisateur: req.user.id,
+      raison,
+      typeSortie,
+      destination
+    });
+
+    if (movement.status === 'not_found') {
+      return res.status(404).json({ message: 'Article non trouve' });
+    }
+    if (movement.status === 'insufficient') {
+      return res.status(400).json({
+        message: 'Quantite demandee superieure a la quantite disponible',
+        disponible: movement.disponible
+      });
+    }
+    if (movement.status === 'conflict') {
+      return res.status(409).json({ message: 'Stock modifie en meme temps. Reessayez.' });
+    }
+
+    const { item: updatedItem, quantiteApres } = movement;
 
     const typeSortieLabels = {
       don: 'Don',
@@ -335,11 +605,29 @@ exports.sortieStock = async (req, res) => {
       message: `${item.nom || 'Article'}: -${quantite} ${item.unite} (reste ${item.quantite})${destination ? ' → ' + destination : ''}`,
       icon: '📤',
       link: '/professional/food-stock',
-      metadata: { foodStockId: item._id, action: 'sortie', typeSortie, quantite, destination, raison },
+      metadata: { foodStockId: updatedItem._id, action: 'sortie', typeSortie, quantite, destination, raison },
       createdBy: req.user.id
     });
 
-    res.json(item);
+    await logAudit({
+      user: req.user,
+      action: 'update',
+      resource: 'foodStock',
+      resourceId: updatedItem._id,
+      details: {
+        operation: 'sortie',
+        nom: updatedItem.nom,
+        typeSortie,
+        destination,
+        quantite,
+        quantiteAvant,
+        quantiteApres,
+        raison
+      },
+      req
+    });
+
+    res.json(updatedItem);
   } catch (error) {
     console.error('Erreur lors de la sortie:', error);
     res.status(400).json({ message: 'Erreur lors de la sortie', error: error.message });
@@ -350,11 +638,14 @@ exports.sortieStock = async (req, res) => {
 exports.getGlobalHistory = async (req, res) => {
   try {
     const { action, typeSortie, search, dateFrom, dateTo, page: pageParam, limit: limitParam } = req.query;
+    const associationId = requireAssociation(req, res);
+    if (!associationId) return;
     const page = parseInt(pageParam) || 1;
     const limit = parseInt(limitParam) || 50;
 
     // Build aggregation pipeline
     const pipeline = [
+      { $match: { association: associationId } },
       { $unwind: '$historique' },
       { $lookup: { from: 'users', localField: 'historique.utilisateur', foreignField: '_id', as: 'historique.utilisateurInfo' } },
       { $unwind: { path: '$historique.utilisateurInfo', preserveNullAndEmptyArrays: true } }
@@ -435,6 +726,7 @@ exports.getGlobalHistory = async (req, res) => {
 
     // Stats summary
     const statsPipeline = [
+      { $match: { association: associationId } },
       { $unwind: '$historique' }
     ];
     if (action === 'sortie_consommation') {
@@ -451,6 +743,7 @@ exports.getGlobalHistory = async (req, res) => {
 
     // Sortie breakdown by type
     const sortieBreakdown = await FoodStock.aggregate([
+      { $match: { association: associationId } },
       { $unwind: '$historique' },
       { $match: { 'historique.action': 'sortie' } },
       { $group: { _id: '$historique.typeSortie', count: { $sum: 1 }, totalQuantite: { $sum: '$historique.quantite' } } }
@@ -471,11 +764,29 @@ exports.getGlobalHistory = async (req, res) => {
 // Supprimer un article
 exports.deleteStockItem = async (req, res) => {
   try {
-    const item = await FoodStock.findByIdAndDelete(req.params.id);
+    const associationId = requireAssociation(req, res);
+    if (!associationId) return;
+
+    const item = await FoodStock.findOneAndDelete({ _id: req.params.id, association: associationId });
     
     if (!item) {
       return res.status(404).json({ message: 'Article non trouvé' });
     }
+
+    await logAudit({
+      user: req.user,
+      action: 'delete',
+      resource: 'foodStock',
+      resourceId: item._id,
+      details: {
+        nom: item.nom,
+        categorie: item.categorie,
+        quantite: item.quantite,
+        unite: item.unite
+      },
+      previousValues: item.toObject(),
+      req
+    });
 
     res.json({ message: 'Article supprimé avec succès' });
   } catch (error) {
@@ -487,11 +798,14 @@ exports.deleteStockItem = async (req, res) => {
 // Obtenir les alertes (articles proches de l'expiration ou quantité critique)
 exports.getAlerts = async (req, res) => {
   try {
+    const associationId = requireAssociation(req, res);
+    if (!associationId) return;
     const maintenant = new Date();
     const dansSeptJours = new Date(maintenant.getTime() + 7 * 24 * 60 * 60 * 1000);
 
     // Articles expirant dans les 7 prochains jours
     const alertesExpiration = await FoodStock.find({
+      association: associationId,
       dateExpiration: { 
         $gte: maintenant,
         $lte: dansSeptJours 
@@ -501,6 +815,7 @@ exports.getAlerts = async (req, res) => {
 
     // Articles en quantité critique
     const alertesCritiques = await FoodStock.find({
+      association: associationId,
       statut: { $in: ['critique', 'faible'] }
     }).sort({ quantite: 1 });
 
@@ -517,13 +832,18 @@ exports.getAlerts = async (req, res) => {
 // Obtenir les statistiques globales
 exports.getStatistics = async (req, res) => {
   try {
-    const totalItems = await FoodStock.countDocuments();
+    const associationId = requireAssociation(req, res);
+    if (!associationId) return;
+
+    const totalItems = await FoodStock.countDocuments({ association: associationId });
     
     const statutStats = await FoodStock.aggregate([
+      { $match: { association: associationId } },
       { $group: { _id: '$statut', count: { $sum: 1 } } }
     ]);
 
     const valeurTotale = await FoodStock.aggregate([
+      { $match: { association: associationId } },
       { 
         $group: { 
           _id: null, 
@@ -533,6 +853,7 @@ exports.getStatistics = async (req, res) => {
     ]);
 
     const parCategorie = await FoodStock.aggregate([
+      { $match: { association: associationId } },
       { 
         $group: { 
           _id: '$categorie',
@@ -557,7 +878,10 @@ exports.getStatistics = async (req, res) => {
 // Obtenir l'historique d'un article
 exports.getItemHistory = async (req, res) => {
   try {
-    const item = await FoodStock.findById(req.params.id)
+    const associationId = requireAssociation(req, res);
+    if (!associationId) return;
+
+    const item = await FoodStock.findOne({ _id: req.params.id, association: associationId })
       .populate('historique.utilisateur', 'name email')
       .select('nom historique');
     if (!item) {
@@ -573,30 +897,36 @@ exports.getItemHistory = async (req, res) => {
 // Données pour les graphiques
 exports.getChartData = async (req, res) => {
   try {
+    const associationId = requireAssociation(req, res);
+    if (!associationId) return;
     // 1. Stock par catégorie (pie chart)
     const parCategorie = await FoodStock.aggregate([
+      { $match: { association: associationId } },
       { $group: { _id: '$categorie', count: { $sum: 1 }, valeur: { $sum: { $multiply: ['$quantite', '$prix'] } }, quantiteTotale: { $sum: '$quantite' } } }
     ]);
 
     // 2. Stock par statut (pie chart)
     const parStatut = await FoodStock.aggregate([
+      { $match: { association: associationId } },
       { $group: { _id: '$statut', count: { $sum: 1 } } }
     ]);
 
     // 3. Top 10 articles par valeur (bar chart)
-    const topArticles = await FoodStock.find()
+    const topArticles = await FoodStock.find({ association: associationId })
       .sort({ quantite: -1 })
       .limit(10)
       .select('nom quantite unite prix categorie');
 
     // 4. Valeur par catégorie (bar chart)
     const valeurParCategorie = await FoodStock.aggregate([
+      { $match: { association: associationId } },
       { $group: { _id: '$categorie', valeur: { $sum: { $multiply: ['$quantite', '$prix'] } } } },
       { $sort: { valeur: -1 } }
     ]);
 
     // 5. Achats par mois (line chart) - basé sur dateAchat
     const achatsParMois = await FoodStock.aggregate([
+      { $match: { association: associationId } },
       { $group: {
         _id: { year: { $year: '$dateAchat' }, month: { $month: '$dateAchat' } },
         count: { $sum: 1 },
@@ -621,7 +951,11 @@ exports.getChartData = async (req, res) => {
 // Données pour le calendrier d'expiration
 exports.getExpirationCalendar = async (req, res) => {
   try {
+    const associationId = requireAssociation(req, res);
+    if (!associationId) return;
+
     const items = await FoodStock.find({
+      association: associationId,
       dateExpiration: { $exists: true }
     })
     .select('nom categorie quantite unite dateExpiration statut')
@@ -644,7 +978,10 @@ exports.getExpirationCalendar = async (req, res) => {
 // Obtenir le plan de consommation recommandé
 exports.getPlanConsommation = async (req, res) => {
   try {
-    const item = await FoodStock.findById(req.params.id);
+    const associationId = requireAssociation(req, res);
+    if (!associationId) return;
+
+    const item = await FoodStock.findOne({ _id: req.params.id, association: associationId });
     
     if (!item) {
       return res.status(404).json({ message: 'Article non trouvé' });
@@ -681,24 +1018,30 @@ exports.getPlanConsommation = async (req, res) => {
 // ═══════════════════════════════════════════════════════
 exports.getValueDashboard = async (req, res) => {
   try {
+    const associationId = requireAssociation(req, res);
+    if (!associationId) return;
     // Total current value
     const currentValue = await FoodStock.aggregate([
+      { $match: { association: associationId } },
       { $group: { _id: null, total: { $sum: { $multiply: ['$quantite', '$prix'] } }, totalItems: { $sum: 1 } } }
     ]);
 
     // Value by status
     const valueByStatus = await FoodStock.aggregate([
+      { $match: { association: associationId } },
       { $group: { _id: '$statut', valeur: { $sum: { $multiply: ['$quantite', '$prix'] } }, count: { $sum: 1 } } }
     ]);
 
     // Value by category
     const valueByCategory = await FoodStock.aggregate([
+      { $match: { association: associationId } },
       { $group: { _id: '$categorie', valeur: { $sum: { $multiply: ['$quantite', '$prix'] } }, count: { $sum: 1 }, quantiteTotale: { $sum: '$quantite' } } },
       { $sort: { valeur: -1 } }
     ]);
 
     // Value consumed (from history)
     const consumed = await FoodStock.aggregate([
+      { $match: { association: associationId } },
       { $unwind: '$historique' },
       { $match: { 'historique.action': 'consommation' } },
       { $lookup: { from: 'foodstocks', localField: '_id', foreignField: '_id', as: 'item' } },
@@ -707,6 +1050,7 @@ exports.getValueDashboard = async (req, res) => {
 
     // Value lost (sortie type perte + expire_jete)
     const lost = await FoodStock.aggregate([
+      { $match: { association: associationId } },
       { $unwind: '$historique' },
       { $match: { 'historique.action': 'sortie', 'historique.typeSortie': { $in: ['perte', 'expire_jete'] } } },
       { $group: { _id: null, totalQuantite: { $sum: '$historique.quantite' }, count: { $sum: 1 } } }
@@ -714,6 +1058,7 @@ exports.getValueDashboard = async (req, res) => {
 
     // Value donated
     const donated = await FoodStock.aggregate([
+      { $match: { association: associationId } },
       { $unwind: '$historique' },
       { $match: { 'historique.action': 'sortie', 'historique.typeSortie': 'don' } },
       { $group: { _id: null, totalQuantite: { $sum: '$historique.quantite' }, count: { $sum: 1 } } }
@@ -721,11 +1066,13 @@ exports.getValueDashboard = async (req, res) => {
 
     // Initial vs current stock comparison
     const stockComparison = await FoodStock.aggregate([
+      { $match: { association: associationId } },
       { $group: { _id: null, totalInitial: { $sum: '$quantiteInitiale' }, totalCurrent: { $sum: '$quantite' } } }
     ]);
 
     // Monthly spending trend
     const monthlySpending = await FoodStock.aggregate([
+      { $match: { association: associationId } },
       { $group: {
         _id: { year: { $year: '$dateAchat' }, month: { $month: '$dateAchat' } },
         valeur: { $sum: { $multiply: ['$quantiteInitiale', '$prix'] } },
@@ -761,8 +1108,11 @@ exports.getValueDashboard = async (req, res) => {
 // ═══════════════════════════════════════════════════════
 exports.getReorderSuggestions = async (req, res) => {
   try {
+    const associationId = requireAssociation(req, res);
+    if (!associationId) return;
     // Items below or at critical threshold
     const lowStockItems = await FoodStock.find({
+      association: associationId,
       $or: [
         { statut: 'critique' },
         { statut: 'faible' },
@@ -821,6 +1171,8 @@ exports.getReorderSuggestions = async (req, res) => {
 // ═══════════════════════════════════════════════════════
 exports.batchConsume = async (req, res) => {
   try {
+    const associationId = requireAssociation(req, res);
+    if (!associationId) return;
     const { items } = req.body; // [{ id, quantite, raison }]
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ message: 'Liste d\'articles requise' });
@@ -829,18 +1181,43 @@ exports.batchConsume = async (req, res) => {
     const results = [];
     for (const entry of items) {
       try {
-        const item = await FoodStock.findById(entry.id);
+        const item = await FoodStock.findOne({ _id: entry.id, association: associationId });
         if (!item) { results.push({ id: entry.id, success: false, error: 'Non trouvé' }); continue; }
-        if (entry.quantite > item.quantite) { results.push({ id: entry.id, nom: item.nom, success: false, error: 'Quantité insuffisante' }); continue; }
-        item.enregistrerConsommation(entry.quantite, req.user.id, entry.raison || 'Consommation par lot');
-        await item.save();
-        results.push({ id: entry.id, nom: item.nom, success: true, quantiteRestante: item.quantite });
+        const quantite = Number(entry.quantite);
+        if (!quantite || quantite <= 0) { results.push({ id: entry.id, nom: item.nom, success: false, error: 'Quantité invalide' }); continue; }
+        const movement = await applyAtomicStockMovement({
+          itemId: entry.id,
+          associationId,
+          quantite,
+          direction: 'remove',
+          action: 'consommation',
+          utilisateur: req.user.id,
+          raison: entry.raison || 'Consommation par lot'
+        });
+        if (movement.status === 'insufficient') { results.push({ id: entry.id, nom: item.nom, success: false, error: 'Quantité insuffisante' }); continue; }
+        if (movement.status === 'conflict') { results.push({ id: entry.id, nom: item.nom, success: false, error: 'Conflit de stock, réessayez' }); continue; }
+        if (movement.status === 'not_found') { results.push({ id: entry.id, success: false, error: 'Non trouvé' }); continue; }
+        results.push({ id: entry.id, nom: movement.item.nom, success: true, quantiteRestante: movement.item.quantite });
       } catch (err) {
         results.push({ id: entry.id, success: false, error: err.message });
       }
     }
 
-    res.json({ results, totalProcessed: items.length, successful: results.filter(r => r.success).length });
+    const successful = results.filter(r => r.success).length;
+    await logAudit({
+      user: req.user,
+      action: 'update',
+      resource: 'foodStock',
+      details: {
+        operation: 'batch_consommation',
+        totalProcessed: items.length,
+        successful,
+        failed: results.length - successful
+      },
+      req
+    });
+
+    res.json({ results, totalProcessed: items.length, successful });
   } catch (error) {
     res.status(500).json({ message: 'Erreur opération par lot', error: error.message });
   }
@@ -848,6 +1225,8 @@ exports.batchConsume = async (req, res) => {
 
 exports.batchSortie = async (req, res) => {
   try {
+    const associationId = requireAssociation(req, res);
+    if (!associationId) return;
     const { items, typeSortie, destination, raison } = req.body;
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ message: 'Liste d\'articles requise' });
@@ -856,18 +1235,49 @@ exports.batchSortie = async (req, res) => {
     const results = [];
     for (const entry of items) {
       try {
-        const item = await FoodStock.findById(entry.id);
+        const item = await FoodStock.findOne({ _id: entry.id, association: associationId });
         if (!item) { results.push({ id: entry.id, success: false, error: 'Non trouvé' }); continue; }
-        if (entry.quantite > item.quantite) { results.push({ id: entry.id, nom: item.nom, success: false, error: 'Quantité insuffisante' }); continue; }
-        item.enregistrerSortie(entry.quantite, req.user.id, typeSortie || entry.typeSortie || 'autre', destination || entry.destination || '', raison || entry.raison || '');
-        await item.save();
-        results.push({ id: entry.id, nom: item.nom, success: true, quantiteRestante: item.quantite });
+        const quantite = Number(entry.quantite);
+        if (!quantite || quantite <= 0) { results.push({ id: entry.id, nom: item.nom, success: false, error: 'Quantité invalide' }); continue; }
+        const resolvedTypeSortie = typeSortie || entry.typeSortie || 'autre';
+        const resolvedDestination = destination || entry.destination || '';
+        const movement = await applyAtomicStockMovement({
+          itemId: entry.id,
+          associationId,
+          quantite,
+          direction: 'remove',
+          action: 'sortie',
+          utilisateur: req.user.id,
+          raison: raison || entry.raison || '',
+          typeSortie: resolvedTypeSortie,
+          destination: resolvedDestination
+        });
+        if (movement.status === 'insufficient') { results.push({ id: entry.id, nom: item.nom, success: false, error: 'Quantité insuffisante' }); continue; }
+        if (movement.status === 'conflict') { results.push({ id: entry.id, nom: item.nom, success: false, error: 'Conflit de stock, réessayez' }); continue; }
+        if (movement.status === 'not_found') { results.push({ id: entry.id, success: false, error: 'Non trouvé' }); continue; }
+        results.push({ id: entry.id, nom: movement.item.nom, success: true, quantiteRestante: movement.item.quantite });
       } catch (err) {
         results.push({ id: entry.id, success: false, error: err.message });
       }
     }
 
-    res.json({ results, totalProcessed: items.length, successful: results.filter(r => r.success).length });
+    const successful = results.filter(r => r.success).length;
+    await logAudit({
+      user: req.user,
+      action: 'update',
+      resource: 'foodStock',
+      details: {
+        operation: 'batch_sortie',
+        typeSortie,
+        destination,
+        totalProcessed: items.length,
+        successful,
+        failed: results.length - successful
+      },
+      req
+    });
+
+    res.json({ results, totalProcessed: items.length, successful });
   } catch (error) {
     res.status(500).json({ message: 'Erreur opération par lot', error: error.message });
   }
@@ -875,11 +1285,26 @@ exports.batchSortie = async (req, res) => {
 
 exports.batchDelete = async (req, res) => {
   try {
+    const associationId = requireAssociation(req, res);
+    if (!associationId) return;
     const { ids } = req.body;
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
       return res.status(400).json({ message: 'Liste d\'IDs requise' });
     }
-    const result = await FoodStock.deleteMany({ _id: { $in: ids } });
+    const result = await FoodStock.deleteMany({ _id: { $in: ids }, association: associationId });
+
+    await logAudit({
+      user: req.user,
+      action: 'delete',
+      resource: 'foodStock',
+      details: {
+        operation: 'batch_delete',
+        requested: ids.length,
+        deletedCount: result.deletedCount
+      },
+      req
+    });
+
     res.json({ deletedCount: result.deletedCount, requested: ids.length });
   } catch (error) {
     res.status(500).json({ message: 'Erreur suppression par lot', error: error.message });
@@ -891,6 +1316,8 @@ exports.batchDelete = async (req, res) => {
 // ═══════════════════════════════════════════════════════
 exports.performInventoryCount = async (req, res) => {
   try {
+    const associationId = requireAssociation(req, res);
+    if (!associationId) return;
     const { counts } = req.body; // [{ id, quantitePhysique, notes }]
     if (!counts || !Array.isArray(counts) || counts.length === 0) {
       return res.status(400).json({ message: 'Liste de comptage requise' });
@@ -899,28 +1326,34 @@ exports.performInventoryCount = async (req, res) => {
     const results = [];
     for (const entry of counts) {
       try {
-        const item = await FoodStock.findById(entry.id);
+        const item = await FoodStock.findOne({ _id: entry.id, association: associationId });
         if (!item) { results.push({ id: entry.id, success: false, error: 'Non trouvé' }); continue; }
 
-        const difference = entry.quantitePhysique - item.quantite;
-        const oldQty = item.quantite;
-        item.quantite = entry.quantitePhysique;
+        const quantitePhysique = Number(entry.quantitePhysique);
+        if (Number.isNaN(quantitePhysique) || quantitePhysique < 0) {
+          results.push({ id: entry.id, nom: item.nom, success: false, error: 'Quantité physique invalide' });
+          continue;
+        }
 
-        item.historique.push({
-          action: 'modification',
-          quantite: Math.abs(difference),
-          quantiteRestante: entry.quantitePhysique,
+        const movement = await applyAtomicInventoryCount({
+          itemId: entry.id,
+          associationId,
+          quantitePhysique,
           utilisateur: req.user.id,
-          notes: `جرد/Inventaire: ${oldQty} → ${entry.quantitePhysique} (${difference > 0 ? '+' : ''}${difference})${entry.notes ? ' | ' + entry.notes : ''}`
+          notes: entry.notes || ''
         });
+        if (movement.status === 'conflict') { results.push({ id: entry.id, nom: item.nom, success: false, error: 'Conflit de stock, réessayez' }); continue; }
+        if (movement.status === 'not_found') { results.push({ id: entry.id, success: false, error: 'Non trouvé' }); continue; }
+        const difference = movement.difference;
+        const oldQty = movement.quantiteAvant;
+        const updatedItem = movement.item;
 
-        await item.save();
         results.push({
           id: entry.id,
-          nom: item.nom,
+          nom: updatedItem.nom,
           success: true,
           ancienneQuantite: oldQty,
-          nouvelleQuantite: entry.quantitePhysique,
+          nouvelleQuantite: quantitePhysique,
           difference
         });
       } catch (err) {
@@ -930,6 +1363,21 @@ exports.performInventoryCount = async (req, res) => {
 
     const totalDiffPositive = results.filter(r => r.success && r.difference > 0).reduce((s, r) => s + r.difference, 0);
     const totalDiffNegative = results.filter(r => r.success && r.difference < 0).reduce((s, r) => s + Math.abs(r.difference), 0);
+
+    await logAudit({
+      user: req.user,
+      action: 'update',
+      resource: 'foodStock',
+      details: {
+        operation: 'inventory_count',
+        total: counts.length,
+        successful: results.filter(r => r.success).length,
+        withDifference: results.filter(r => r.success && r.difference !== 0).length,
+        totalExcess: totalDiffPositive,
+        totalDeficit: totalDiffNegative
+      },
+      req
+    });
 
     res.json({
       results,
@@ -951,6 +1399,8 @@ exports.performInventoryCount = async (req, res) => {
 // ═══════════════════════════════════════════════════════
 exports.bulkImport = async (req, res) => {
   try {
+    const associationId = requireAssociation(req, res);
+    if (!associationId) return;
     const { items } = req.body;
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ message: 'Liste d\'articles requise' });
@@ -972,6 +1422,7 @@ exports.bulkImport = async (req, res) => {
         const itemData = {
           nom: String(entry.nom).trim(),
           categorie: entry.categorie || 'autres',
+          association: associationId,
           quantite: qty,
           quantiteInitiale: qty,
           unite: entry.unite || 'kg',
@@ -1012,13 +1463,30 @@ exports.bulkImport = async (req, res) => {
       }
     }
 
+    const successful = results.filter(r => r.success).length;
+    const failed = results.filter(r => !r.success).length;
+
+    await logAudit({
+      user: req.user,
+      action: 'import',
+      resource: 'foodStock',
+      details: {
+        operation: 'bulk_import',
+        importBatchId,
+        total: items.length,
+        successful,
+        failed
+      },
+      req
+    });
+
     res.json({
       importBatchId,
       results,
       summary: {
         total: items.length,
-        successful: results.filter(r => r.success).length,
-        failed: results.filter(r => !r.success).length
+        successful,
+        failed
       }
     });
   } catch (error) {
@@ -1031,19 +1499,33 @@ exports.bulkImport = async (req, res) => {
 // ═══════════════════════════════════════════════════════
 exports.rollbackImport = async (req, res) => {
   try {
+    const associationId = requireAssociation(req, res);
+    if (!associationId) return;
     const { batchId } = req.params;
     if (!batchId) {
       return res.status(400).json({ message: 'Batch ID requis' });
     }
 
     // Find all items from this batch
-    const batchItems = await FoodStock.find({ importBatchId: batchId });
+    const batchItems = await FoodStock.find({ importBatchId: batchId, association: associationId });
     if (batchItems.length === 0) {
       return res.status(404).json({ message: 'Aucun article trouv\u00e9 pour ce lot d\'import' });
     }
 
     // Delete all items from this batch
-    const result = await FoodStock.deleteMany({ importBatchId: batchId });
+    const result = await FoodStock.deleteMany({ importBatchId: batchId, association: associationId });
+
+    await logAudit({
+      user: req.user,
+      action: 'delete',
+      resource: 'foodStock',
+      details: {
+        operation: 'rollback_import',
+        batchId,
+        deletedCount: result.deletedCount
+      },
+      req
+    });
 
     res.json({
       message: `${result.deletedCount} articles supprimés (rollback du lot ${batchId})`,
@@ -1060,8 +1542,10 @@ exports.rollbackImport = async (req, res) => {
 // ═══════════════════════════════════════════════════════
 exports.getImportBatches = async (req, res) => {
   try {
+    const associationId = requireAssociation(req, res);
+    if (!associationId) return;
     const batches = await FoodStock.aggregate([
-      { $match: { importBatchId: { $exists: true, $ne: null } } },
+      { $match: { association: associationId, importBatchId: { $exists: true, $ne: null } } },
       { $group: {
         _id: '$importBatchId',
         count: { $sum: 1 },
@@ -1084,8 +1568,10 @@ exports.getImportBatches = async (req, res) => {
 // ═══════════════════════════════════════════════════════
 exports.getSuppliers = async (req, res) => {
   try {
+    const associationId = requireAssociation(req, res);
+    if (!associationId) return;
     const suppliers = await FoodStock.aggregate([
-      { $match: { fournisseur: { $exists: true, $ne: '' } } },
+      { $match: { association: associationId, fournisseur: { $exists: true, $ne: '' } } },
       { $group: {
         _id: '$fournisseur',
         totalArticles: { $sum: 1 },
@@ -1107,8 +1593,14 @@ exports.getSuppliers = async (req, res) => {
 // ═══════════════════════════════════════════════════════
 exports.getMealSuggestions = async (req, res) => {
   try {
+    const associationId = requireAssociation(req, res);
+    if (!associationId) return;
     // Get available items grouped by category
-    const available = await FoodStock.find({ statut: { $ne: 'expire' }, quantite: { $gt: 0 } })
+    const available = await FoodStock.find({
+      association: associationId,
+      statut: { $ne: 'expire' },
+      quantite: { $gt: 0 }
+    })
       .select('nom categorie quantite unite dateExpiration prix')
       .sort({ dateExpiration: 1 });
 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
+import { API_URL, getAuthHeaders } from '../utils/api'
 import './AnalyticsDashboard.css'
 
 function AnalyticsDashboard() {
@@ -15,8 +16,6 @@ function AnalyticsDashboard() {
   const [period, setPeriod] = useState('week') // day, week, month, year
   const [stats, setStats] = useState(defaultStats)
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
-
   useEffect(() => {
     fetchAnalytics()
   }, [period])
@@ -24,9 +23,8 @@ function AnalyticsDashboard() {
   const fetchAnalytics = async () => {
     setLoading(true)
     try {
-      const token = localStorage.getItem('professionalToken')
-      const response = await fetch(`${API_URL}/api/analytics/dashboard?period=${period}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+      const response = await fetch(`${API_URL}/analytics/dashboard?period=${period}`, {
+        headers: getAuthHeaders()
       })
       const data = await response.json()
       if (data.success) {

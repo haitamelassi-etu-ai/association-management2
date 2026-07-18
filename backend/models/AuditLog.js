@@ -3,8 +3,12 @@ const mongoose = require('mongoose');
 const auditLogSchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
+    ref: 'User'
+  },
+  association: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Association',
+    index: true
   },
   action: {
     type: String,
@@ -52,6 +56,7 @@ const auditLogSchema = new mongoose.Schema({
 
 // Index for efficient querying
 auditLogSchema.index({ user: 1, timestamp: -1 });
+auditLogSchema.index({ association: 1, timestamp: -1 });
 auditLogSchema.index({ action: 1, timestamp: -1 });
 auditLogSchema.index({ resource: 1, resourceId: 1 });
 auditLogSchema.index({ timestamp: -1 });

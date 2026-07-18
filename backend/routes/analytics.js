@@ -7,7 +7,7 @@ const { protect, authorize } = require('../middleware/auth');
 
 // ─── COMPREHENSIVE BENEFICIARY ANALYTICS ───
 // @route GET /api/analytics/beneficiaries/full
-router.get('/beneficiaries/full', protect, async (req, res) => {
+router.get('/beneficiaries/full', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const all = await Beneficiary.find({}).lean();
     const now = new Date();
@@ -231,7 +231,7 @@ router.get('/beneficiaries/full', protect, async (req, res) => {
 // @desc    Get dashboard analytics
 // @route   GET /api/analytics/dashboard
 // @access  Private (Admin, Manager, Staff)
-router.get('/dashboard', protect, authorize('admin', 'manager', 'staff'), async (req, res) => {
+router.get('/dashboard', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -372,7 +372,7 @@ router.get('/dashboard', protect, authorize('admin', 'manager', 'staff'), async 
 // @desc    Get beneficiary statistics by status
 // @route   GET /api/analytics/beneficiaries/status
 // @access  Private (Admin, Manager, Staff)
-router.get('/beneficiaries/status', protect, authorize('admin', 'manager', 'staff'), async (req, res) => {
+router.get('/beneficiaries/status', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const statusStats = await Beneficiary.aggregate([
       {
@@ -399,7 +399,7 @@ router.get('/beneficiaries/status', protect, authorize('admin', 'manager', 'staf
 // @desc    Get attendance statistics
 // @route   GET /api/analytics/attendance
 // @access  Private (Admin, Manager, Staff)
-router.get('/attendance', protect, authorize('admin', 'manager', 'staff'), async (req, res) => {
+router.get('/attendance', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);

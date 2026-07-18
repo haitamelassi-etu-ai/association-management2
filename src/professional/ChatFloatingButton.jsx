@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { io } from 'socket.io-client';
+import axios from 'axios';
+import { MessageCircle, X } from 'lucide-react';
 import ConversationsList from './ConversationsList';
 import ChatWindow from './ChatWindow';
-import axios from 'axios';
 import { SOCKET_URL } from '../services/api';
 import { API_URL } from '../utils/api';
 import './ChatFloatingButton.css';
@@ -12,29 +13,36 @@ const ChatFloatingButton = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [socket, setSocket] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
-  const currentUser = JSON.parse(localStorage.getItem('professionalUser'));
 
-  // Initialize socket connection
+  const currentUser = useMemo(() => {
+    const raw = localStorage.getItem('professionalUser');
+    if (!raw) return null;
+
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }, []);
+
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser?.token) return;
 
     const newSocket = io(SOCKET_URL, {
-      auth: {
-        token: currentUser.token
-      },
+      auth: { token: currentUser.token },
       transports: ['websocket', 'polling']
     });
 
     newSocket.on('connect', () => {
-      console.log('✅ Socket connected');
+      console.log('Socket connected');
     });
 
     newSocket.on('connect_error', (error) => {
-      console.error('❌ Socket connection error:', error);
+      console.warn('Socket connection warning:', error);
     });
 
     newSocket.on('disconnect', () => {
-      console.log('🔌 Socket disconnected');
+      console.log('Socket disconnected');
     });
 
     setSocket(newSocket);
@@ -42,48 +50,42 @@ const ChatFloatingButton = () => {
     return () => {
       newSocket.disconnect();
     };
-  }, []);
-
-  // Fetch unread count
-  useEffect(() => {
-    if (!currentUser) return;
-    fetchUnreadCount();
-    
-    const interval = setInterval(fetchUnreadCount, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Listen for new messages
-  useEffect(() => {
-    if (!socket) return;
-
-    socket.on('message:received', () => {
-      fetchUnreadCount();
-    });
-
-    return () => {
-      socket.off('message:received');
-    };
-  }, [socket]);
+  }, [currentUser?.token]);
 
   const fetchUnreadCount = async () => {
+    if (!currentUser?.token) return;
+
     try {
-      const response = await axios.get(
-        `${API_URL}/chat/unread/count`,
-        {
-          headers: {
-            Authorization: `Bearer ${currentUser.token}`
-          }
+      const response = await axios.get(`${API_URL}/chat/unread/count`, {
+        headers: {
+          Authorization: `Bearer ${currentUser.token}`
         }
-      );
-      setUnreadCount(response.data.count);
+      });
+      setUnreadCount(response.data.count || 0);
     } catch (error) {
       console.error('Error fetching unread count:', error);
     }
   };
 
+  useEffect(() => {
+    fetchUnreadCount();
+
+    const interval = window.setInterval(fetchUnreadCount, 30000);
+    return () => window.clearInterval(interval);
+  }, [currentUser?.token]);
+
+  useEffect(() => {
+    if (!socket) return undefined;
+
+    socket.on('message:received', fetchUnreadCount);
+
+    return () => {
+      socket.off('message:received', fetchUnreadCount);
+    };
+  }, [socket]);
+
   const toggleChat = () => {
-    setIsOpen(!isOpen);
+    setIsOpen((opened) => !opened);
   };
 
   const handleSelectUser = (user) => {
@@ -95,11 +97,19 @@ const ChatFloatingButton = () => {
     setSelectedUser(null);
   };
 
+  if (!currentUser) return null;
+
   return (
     <>
-      {/* Floating Button */}
-      <button className="chat-floating-btn" onClick={toggleChat}>
-        <i className="fas fa-comments"></i>
+      <button
+        className="chat-floating-btn"
+        onClick={toggleChat}
+        type="button"
+        aria-label={isOpen ? 'Fermer la messagerie' : 'Ouvrir la messagerie'}
+        title={isOpen ? 'Fermer la messagerie' : 'Messagerie'}
+      >
+        <MessageCircle size={20} />
+        <span className="chat-floating-label">Messages</span>
         {unreadCount > 0 && (
           <span className="chat-floating-badge">
             {unreadCount > 99 ? '99+' : unreadCount}
@@ -107,7 +117,6 @@ const ChatFloatingButton = () => {
         )}
       </button>
 
-      {/* Chat Panel */}
       {isOpen && (
         <div className="chat-panel-overlay">
           <div className="chat-panel">
@@ -122,8 +131,14 @@ const ChatFloatingButton = () => {
               onClose={handleCloseChat}
             />
           </div>
-          <button className="chat-panel-close" onClick={toggleChat}>
-            <i className="fas fa-times"></i>
+          <button
+            className="chat-panel-close"
+            onClick={toggleChat}
+            type="button"
+            aria-label="Fermer la messagerie"
+            title="Fermer"
+          >
+            <X size={20} />
           </button>
         </div>
       )}

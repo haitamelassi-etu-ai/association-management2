@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import TwoFactorSetup from './TwoFactorSetup'
+import { API_URL, getAuthHeaders } from '../utils/api'
 import './UserSettings.css'
 
 function UserSettings() {
@@ -39,17 +40,14 @@ function UserSettings() {
     confirmPassword: ''
   })
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
-
   useEffect(() => {
     fetchUserData()
   }, [])
 
   const fetchUserData = async () => {
     try {
-      const token = localStorage.getItem('professionalToken')
-      const response = await fetch(`${API_URL}/api/auth/me`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+      const response = await fetch(`${API_URL}/auth/me`, {
+        headers: getAuthHeaders()
       })
       const data = await response.json()
       if (data.success) {
@@ -84,13 +82,9 @@ function UserSettings() {
     setMessage({ type: '', text: '' })
     
     try {
-      const token = localStorage.getItem('professionalToken')
-      const response = await fetch(`${API_URL}/api/users/profile`, {
+      const response = await fetch(`${API_URL}/users/profile`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(profile)
       })
       const data = await response.json()
@@ -108,13 +102,9 @@ function UserSettings() {
   const handlePreferencesUpdate = async () => {
     setLoading(true)
     try {
-      const token = localStorage.getItem('professionalToken')
-      await fetch(`${API_URL}/api/users/preferences`, {
+      await fetch(`${API_URL}/users/preferences`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(preferences)
       })
       
@@ -146,13 +136,9 @@ function UserSettings() {
     
     setLoading(true)
     try {
-      const token = localStorage.getItem('professionalToken')
-      const response = await fetch(`${API_URL}/api/auth/change-password`, {
+      const response = await fetch(`${API_URL}/auth/change-password`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           currentPassword: passwordForm.currentPassword,
           newPassword: passwordForm.newPassword
@@ -176,10 +162,9 @@ function UserSettings() {
     
     setLoading(true)
     try {
-      const token = localStorage.getItem('professionalToken')
-      const response = await fetch(`${API_URL}/api/2fa/disable`, {
+      const response = await fetch(`${API_URL}/2fa/disable`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: getAuthHeaders()
       })
       const data = await response.json()
       if (data.success) {

@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import axios from 'axios';
+import { Bell } from 'lucide-react';
 import { API_URL } from '../utils/api';
 import './NotificationBell.css';
 
@@ -8,7 +9,6 @@ function NotificationBell({ onClick }) {
 
   useEffect(() => {
     fetchUnreadCount();
-    // Check every 30 seconds
     const interval = setInterval(fetchUnreadCount, 30000);
     return () => clearInterval(interval);
   }, []);
@@ -17,7 +17,7 @@ function NotificationBell({ onClick }) {
     try {
       const professionalUser = localStorage.getItem('professionalUser');
       if (!professionalUser) return;
-      
+
       const userData = JSON.parse(professionalUser);
       const token = userData.token;
 
@@ -34,8 +34,8 @@ function NotificationBell({ onClick }) {
   };
 
   return (
-    <button className="notification-bell" onClick={onClick} title="Notifications">
-      🔔
+    <button className="notification-bell" onClick={onClick} title="Notifications" type="button">
+      <Bell size={17} />
       {unreadCount > 0 && (
         <span className="bell-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
       )}

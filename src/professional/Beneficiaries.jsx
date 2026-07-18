@@ -2,8 +2,6 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { beneficiariesAPI } from '../services/api'
 import { ProfessionalSidebar } from './SharedSidebar'
-import jsPDF from 'jspdf'
-import html2canvas from 'html2canvas'
 import './ProfessionalDashboard.css'
 import './Beneficiaries.css'
 
@@ -395,204 +393,6 @@ function Beneficiaries() {
     }
   }
 
-  // ─── PHOTO UPLOAD ───
-  const handlePhotoUpload = async (beneficiaryId, file) => {
-    if (!file) return
-    if (file.size > 2 * 1024 * 1024) {
-      alert('La photo ne doit pas dépasser 2 Mo')
-      return
-    }
-    try {
-      const formData = new FormData()
-      formData.append('photo', file)
-      const response = await beneficiariesAPI.uploadPhoto(beneficiaryId, formData)
-      // Update local state
-      const newPhoto = response.data?.data?.photo
-      if (selectedBeneficiary?._id === beneficiaryId) {
-        setSelectedBeneficiary(prev => ({ ...prev, photo: newPhoto }))
-      }
-      setBeneficiaries(prev => prev.map(b => b._id === beneficiaryId ? { ...b, photo: newPhoto } : b))
-    } catch (error) {
-      alert('Erreur upload photo: ' + (error.response?.data?.message || error.message))
-    }
-  }
-
-  const handleDeletePhoto = async (beneficiaryId) => {
-    if (!window.confirm('Supprimer la photo de profil ?')) return
-    try {
-      await beneficiariesAPI.deletePhoto(beneficiaryId)
-      if (selectedBeneficiary?._id === beneficiaryId) {
-        setSelectedBeneficiary(prev => ({ ...prev, photo: null }))
-      }
-      setBeneficiaries(prev => prev.map(b => b._id === beneficiaryId ? { ...b, photo: null } : b))
-    } catch (error) {
-      alert('Erreur: ' + (error.response?.data?.message || error.message))
-    }
-  }
-
-  // ─── FICHE PDF INDIVIDUELLE ───
-  const handleExportBeneficiaryPDF = async (ben) => {
-    try {
-      // Build full HTML fiche with inline styles (Arabic-safe)
-      const logoUrl = window.location.origin + '/images/logo.png'
-
-      const row = (label, value) => `
-        <tr>
-          <td style="padding:5px 10px;font-weight:600;color:#475569;white-space:nowrap;width:35%;border-bottom:1px solid #f1f5f9;font-size:12px;">${label}</td>
-          <td style="padding:5px 10px;color:#1e293b;border-bottom:1px solid #f1f5f9;font-size:12px;">${value || 'N/A'}</td>
-        </tr>`
-
-      const twoCol = (l1, v1, l2, v2) => `
-        <tr>
-          <td style="padding:5px 10px;font-weight:600;color:#475569;white-space:nowrap;width:18%;border-bottom:1px solid #f1f5f9;font-size:12px;">${l1}</td>
-          <td style="padding:5px 10px;color:#1e293b;width:32%;border-bottom:1px solid #f1f5f9;font-size:12px;">${v1 || 'N/A'}</td>
-          <td style="padding:5px 10px;font-weight:600;color:#475569;white-space:nowrap;width:18%;border-bottom:1px solid #f1f5f9;font-size:12px;">${l2}</td>
-          <td style="padding:5px 10px;color:#1e293b;width:32%;border-bottom:1px solid #f1f5f9;font-size:12px;">${v2 || 'N/A'}</td>
-        </tr>`
-
-        
-      const sectionTitle = (title) => `
-        <tr><td colspan="4" style="padding:12px 10px 6px;font-size:14px;font-weight:700;color:#2563eb;border-bottom:2px solid #2563eb;background:#f0f5ff;">
-          ${title}
-        </td></tr>`
-
-      const besoinsActifs = Object.entries(BESOINS_LABELS)
-        .filter(([k]) => ben.besoins?.[k])
-        .map(([, v]) => `<span style="display:inline-block;padding:3px 10px;margin:2px;background:#dbeafe;color:#1e40af;border-radius:12px;font-size:11px;">${v.icon} ${v.label}</span>`)
-        .join('')
-
-      const suiviHtml = (ben.suiviSocial?.length > 0) ? ben.suiviSocial.slice(-10).map(s => `
-        <div style="margin:6px 0;padding:8px 12px;background:#f8fafc;border-left:3px solid #2563eb;border-radius:0 6px 6px 0;">
-          <div style="font-weight:600;color:#2563eb;font-size:11px;">${new Date(s.date).toLocaleDateString('fr-FR')} — ${s.type || 'entretien'}</div>
-          <div style="color:#334155;font-size:11px;margin-top:3px;">${s.description || ''}</div>
-        </div>`).join('') : '<p style="color:#94a3b8;font-size:12px;text-align:center;">Aucun suivi enregistré</p>'
-
-      const htmlContent = `
-        <div id="pdf-fiche" style="width:794px;font-family:'Segoe UI',Tahoma,Arial,sans-serif;background:#fff;color:#1e293b;padding:0;">
-          <!-- HEADER -->
-          <div style="background:linear-gradient(135deg,#1e40af,#2563eb);padding:18px 30px;display:flex;align-items:center;justify-content:space-between;">
-            <div style="display:flex;align-items:center;gap:15px;">
-              <img src="${logoUrl}" style="width:60px;height:60px;border-radius:12px;background:#fff;object-fit:contain;" crossorigin="anonymous" />
-              <div>
-                <div style="color:#fff;font-size:22px;font-weight:800;letter-spacing:1px;">ADDEL ALWAREF</div>
-                <div style="color:#bfdbfe;font-size:13px;font-weight:500;">Fiche Individuelle du Bénéficiaire</div>
-              </div>
-            </div>
-            <div style="text-align:right;">
-              <div style="color:#bfdbfe;font-size:11px;">Généré le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}</div>
-            </div>
-          </div>
-
-          <!-- BODY -->
-          <div style="padding:10px 30px 20px;">
-            <table style="width:100%;border-collapse:collapse;">
-              ${sectionTitle('📋 Informations personnelles / المعلومات الشخصية')}
-              ${twoCol('Nom / الإسم', ben.nom, 'Prénom / اللقب', ben.prenom)}
-              ${twoCol('Sexe', ben.sexe === 'femme' ? 'Femme' : 'Homme', 'Date de naissance', ben.dateNaissance ? new Date(ben.dateNaissance).toLocaleDateString('fr-FR') : 'N/A')}
-              ${twoCol('Lieu de naissance / مكان الازدياد', ben.lieuNaissance, 'CIN / رقم البطاقة الوطنية', ben.cin)}
-              ${twoCol('Téléphone', ben.telephone, 'Nationalité', ben.nationalite || 'Marocaine')}
-              ${row('Adresse / العنوان', ben.adresseOrigine)}
-
-              ${sectionTitle('🏠 Situation sociale / الحالة الاجتماعية')}
-              ${twoCol('Situation familiale', SITUATION_LABELS[ben.situationFamiliale] || 'N/A', 'Nombre d\'enfants', ben.nombreEnfants || 0)}
-              ${twoCol('الحالة الاجتماعية', SITUATION_TYPE_LABELS[ben.situationType] || 'N/A', 'Niveau d\'éducation', ben.niveauEducation?.replace('_', ' ') || 'N/A')}
-              ${twoCol('Profession avant', ben.professionAvant, 'الحالة الصحية', ben.etatSante)}
-              ${twoCol('الجهة الموجهة', ben.entiteOrientatrice, 'مكان التدخل', ben.lieuIntervention)}
-              ${row('ما بعد الايواء', MA_BAAD_LABELS[ben.maBaadAlIwaa]?.label ? `${MA_BAAD_LABELS[ben.maBaadAlIwaa]?.icon || ''} ${MA_BAAD_LABELS[ben.maBaadAlIwaa]?.label}` : 'N/A')}
-
-              ${sectionTitle('🛏️ Hébergement / الإيواء')}
-              ${twoCol('Statut', STATUT_CONFIG[ben.statut]?.label || 'N/A', 'Motif d\'entrée', ben.motifEntree)}
-              ${twoCol('تاريخ الايواء', ben.dateEntree ? new Date(ben.dateEntree).toLocaleDateString('fr-FR') : 'N/A', 'تاريخ المغادرة', ben.dateSortie ? new Date(ben.dateSortie).toLocaleDateString('fr-FR') : '-')}
-              ${twoCol('Chambre', ben.roomNumber || '-', 'Lit', ben.bedNumber || '-')}
-              ${ben.typeDepart ? row('Type de départ', ben.typeDepart) : ''}
-
-              ${sectionTitle('🏥 Santé / الصحة')}
-              ${twoCol('Groupe sanguin', ben.groupeSanguin || 'Non renseigné', 'Allergies', ben.allergies || 'Aucune')}
-              ${twoCol('Maladies chroniques', ben.maladiesChroniques || 'Aucune', 'Traitement en cours', ben.traitementEnCours || 'Aucun')}
-
-              ${sectionTitle('📦 Besoins identifiés / الاحتياجات')}
-              <tr><td colspan="4" style="padding:8px 10px;">
-                ${besoinsActifs || '<span style="color:#94a3b8;font-size:12px;">Aucun besoin identifié</span>'}
-              </td></tr>
-
-              ${ben.notes ? `
-                ${sectionTitle('📝 Notes')}
-                <tr><td colspan="4" style="padding:8px 10px;font-size:12px;color:#334155;line-height:1.6;">
-                  ${ben.notes}
-                </td></tr>
-              ` : ''}
-
-              ${ben.suiviSocial?.length > 0 ? `
-                ${sectionTitle('📋 Suivi social / المتابعة الاجتماعية')}
-                <tr><td colspan="4" style="padding:8px 10px;">
-                  ${suiviHtml}
-                </td></tr>
-              ` : ''}
-            </table>
-          </div>
-
-          <!-- FOOTER -->
-          <div style="background:#f8fafc;padding:10px 30px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:10px;color:#94a3b8;">
-            <span>جمعية عدل الوارف ADDEL ALWAREF — Fiche individuelle — ${ben.prenom} ${ben.nom}</span>
-            <span>${new Date().toLocaleString('fr-FR')}</span>
-          </div>
-        </div>`
-
-      // Create off-screen container, render to canvas, then PDF
-      const container = document.createElement('div')
-      container.style.position = 'fixed'
-      container.style.left = '-9999px'
-      container.style.top = '0'
-      container.innerHTML = htmlContent
-      document.body.appendChild(container)
-
-      const ficheEl = container.querySelector('#pdf-fiche')
-
-      // Wait for images to load
-      const imgs = ficheEl.querySelectorAll('img')
-      await Promise.all([...imgs].map(img => new Promise(resolve => {
-        if (img.complete) return resolve()
-        img.onload = resolve
-        img.onerror = resolve
-      })))
-
-      const canvas = await html2canvas(ficheEl, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-        logging: false
-      })
-
-      document.body.removeChild(container)
-
-      const imgData = canvas.toDataURL('image/jpeg', 0.95)
-      const pdf = new jsPDF('p', 'mm', 'a4')
-      const pdfWidth = pdf.internal.pageSize.getWidth()
-      const pdfHeight = pdf.internal.pageSize.getHeight()
-      const imgWidth = pdfWidth
-      const imgHeight = (canvas.height * pdfWidth) / canvas.width
-
-      let heightLeft = imgHeight
-      let position = 0
-
-      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight)
-      heightLeft -= pdfHeight
-
-      while (heightLeft > 0) {
-        position -= pdfHeight
-        pdf.addPage()
-        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight)
-        heightLeft -= pdfHeight
-      }
-
-      pdf.save(`fiche_${ben.prenom}_${ben.nom}_${new Date().toISOString().split('T')[0]}.pdf`)
-    } catch (error) {
-      console.error('PDF error:', error)
-      alert('Erreur génération PDF: ' + error.message)
-    }
-  }
-
   // ─── DELETE ───
   const handleDelete = async (id) => {
     if (!window.confirm('Supprimer ce bénéficiaire ? Cette action est irréversible.')) return
@@ -897,12 +697,8 @@ function Beneficiaries() {
                       <td>{b.numeroOrdre || (idx + 1)}</td>
                       <td>
                         <div className="beneficiary-name">
-                          <div className={`beneficiary-avatar ${b.sexe === 'femme' ? 'avatar-femme' : ''} ${b.photo ? 'has-photo' : ''}`}>
-                            {b.photo ? (
-                              <img src={b.photo} alt={`${b.prenom}`} className="avatar-photo" />
-                            ) : (
-                              b.sexe === 'femme' ? '👩' : '👨'
-                            )}
+                          <div className={`beneficiary-avatar ${b.sexe === 'femme' ? 'avatar-femme' : ''}`}>
+                            {b.sexe === 'femme' ? '👩' : '👨'}
                           </div>
                           <div>
                             <div className="name-primary">{b.prenom} {b.nom}</div>
@@ -933,7 +729,6 @@ function Beneficiaries() {
                       <td>
                         <div className="action-buttons">
                           <button className="btn-icon" onClick={() => handleViewDetails(b)} title="Détails">👁️</button>
-                          <button className="btn-icon" onClick={() => handleExportBeneficiaryPDF(b)} title="Fiche PDF">📄</button>
                           <button className="btn-icon" onClick={() => { setEditBeneficiary(b); setShowEditModal(true) }} title="Modifier">✏️</button>
                           <button className="btn-icon btn-icon-danger" onClick={() => handleDelete(b._id)} title="Supprimer">🗑️</button>
                         </div>
@@ -1328,32 +1123,14 @@ function Beneficiaries() {
           <div className="modal-content xlarge" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <div className="detail-header-info">
-                <div className={`detail-avatar ${selectedBeneficiary.sexe === 'femme' ? 'avatar-femme' : ''} ${selectedBeneficiary.photo ? 'has-photo' : ''}`}>
-                  {selectedBeneficiary.photo ? (
-                    <img src={selectedBeneficiary.photo} alt={`${selectedBeneficiary.prenom}`} className="detail-avatar-photo" />
-                  ) : (
-                    selectedBeneficiary.sexe === 'femme' ? '👩' : '👨'
-                  )}
-                  <label className="photo-upload-overlay" title="Changer la photo">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      style={{ display: 'none' }}
-                      onChange={(e) => handlePhotoUpload(selectedBeneficiary._id, e.target.files[0])}
-                    />
-                    📷
-                  </label>
+                <div className={`detail-avatar ${selectedBeneficiary.sexe === 'femme' ? 'avatar-femme' : ''}`}>
+                  {selectedBeneficiary.sexe === 'femme' ? '👩' : '👨'}
                 </div>
                 <div>
                   <h2>{selectedBeneficiary.prenom} {selectedBeneficiary.nom}</h2>
                   <span className={`badge ${STATUT_CONFIG[selectedBeneficiary.statut]?.class || ''}`}>
                     {STATUT_CONFIG[selectedBeneficiary.statut]?.icon} {STATUT_CONFIG[selectedBeneficiary.statut]?.label}
                   </span>
-                  {selectedBeneficiary.photo && (
-                    <button className="btn-icon btn-icon-sm btn-remove-photo" onClick={() => handleDeletePhoto(selectedBeneficiary._id)} title="Supprimer la photo">
-                      🗑️
-                    </button>
-                  )}
                 </div>
               </div>
               <button className="btn-close" onClick={() => setSelectedBeneficiary(null)}>✕</button>
@@ -1537,9 +1314,6 @@ function Beneficiaries() {
 
             <div className="modal-footer">
               <button className="btn-secondary" onClick={() => setSelectedBeneficiary(null)}>Fermer</button>
-              <button className="btn-outline" onClick={() => handleExportBeneficiaryPDF(selectedBeneficiary)}>
-                📄 Fiche PDF
-              </button>
               <button className="btn-primary" onClick={() => { setEditBeneficiary(selectedBeneficiary); setShowEditModal(true); setSelectedBeneficiary(null) }}>
                 ✏️ Modifier
               </button>

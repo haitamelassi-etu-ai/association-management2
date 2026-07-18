@@ -30,6 +30,10 @@ const userSchema = new mongoose.Schema({
     enum: ['admin', 'responsable', 'staff', 'volunteer'],
     default: 'staff'
   },
+  association: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Association'
+  },
   telephone: {
     type: String,
     trim: true
@@ -55,6 +59,62 @@ const userSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+  preferences: {
+    language: {
+      type: String,
+      default: 'fr'
+    },
+    theme: {
+      type: String,
+      default: 'light'
+    },
+    notifications: {
+      email: { type: Boolean, default: true },
+      inApp: { type: Boolean, default: true },
+      sms: { type: Boolean, default: false }
+    }
+  },
+  integrations: {
+    googleCalendar: {
+      enabled: { type: Boolean, default: false },
+      connected: { type: Boolean, default: false }
+    },
+    whatsapp: {
+      enabled: { type: Boolean, default: false },
+      phoneNumber: { type: String, default: '' }
+    },
+    emailjs: {
+      enabled: { type: Boolean, default: false },
+      serviceId: { type: String, default: '' },
+      templateId: { type: String, default: '' },
+      publicKey: { type: String, default: '' }
+    }
+  },
+  twoFactorEnabled: {
+    type: Boolean,
+    default: false
+  },
+  twoFactorSecret: {
+    type: String,
+    select: false
+  },
+  twoFactorTempSecret: {
+    type: String,
+    select: false
+  },
+  twoFactorBackupCodes: [{
+    code: {
+      type: String,
+      select: false
+    },
+    used: {
+      type: Boolean,
+      default: false
+    }
+  }],
+  lastLogin: {
+    type: Date
   },
   createdAt: {
     type: Date,

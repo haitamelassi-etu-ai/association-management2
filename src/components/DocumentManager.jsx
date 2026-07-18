@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
+import { API_URL, getAuthHeaders } from '../utils/api'
 import './DocumentManager.css'
 
 function DocumentManager() {
@@ -13,8 +14,6 @@ function DocumentManager() {
   const [filterCategory, setFilterCategory] = useState('all')
   const [showUploadModal, setShowUploadModal] = useState(false)
   const fileInputRef = useRef(null)
-
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
   const categories = [
     { id: 'all', label: 'Tous', icon: '📁' },
@@ -33,13 +32,12 @@ function DocumentManager() {
   const fetchDocuments = async () => {
     setLoading(true)
     try {
-      const token = localStorage.getItem('professionalToken')
       const url = filterCategory === 'all' 
-        ? `${API_URL}/api/documents`
-        : `${API_URL}/api/documents?category=${filterCategory}`
+        ? `${API_URL}/documents`
+        : `${API_URL}/documents?category=${filterCategory}`
       
       const response = await fetch(url, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: getAuthHeaders()
       })
       const data = await response.json()
       if (data.success) {
@@ -64,12 +62,9 @@ function DocumentManager() {
     formData.append('category', filterCategory !== 'all' ? filterCategory : 'other')
 
     try {
-      const token = localStorage.getItem('professionalToken')
-      const response = await fetch(`${API_URL}/api/documents/upload`, {
+      const response = await fetch(`${API_URL}/documents/upload`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
+        headers: getAuthHeaders(),
         body: formData
       })
       const data = await response.json()
@@ -88,10 +83,9 @@ function DocumentManager() {
     if (!confirm('Êtes-vous sûr de vouloir supprimer ce document?')) return
     
     try {
-      const token = localStorage.getItem('professionalToken')
-      await fetch(`${API_URL}/api/documents/${docId}`, {
+      await fetch(`${API_URL}/documents/${docId}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: getAuthHeaders()
       })
       setDocuments(prev => prev.filter(d => d._id !== docId))
       if (selectedDoc?._id === docId) setSelectedDoc(null)
@@ -102,9 +96,8 @@ function DocumentManager() {
 
   const handleDownload = async (doc) => {
     try {
-      const token = localStorage.getItem('professionalToken')
-      const response = await fetch(`${API_URL}/api/documents/${doc._id}/download`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+      const response = await fetch(`${API_URL}/documents/${doc._id}/download`, {
+        headers: getAuthHeaders()
       })
       const blob = await response.blob()
       const url = URL.createObjectURL(blob)

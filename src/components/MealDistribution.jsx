@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { API_URL } from '../utils/api';
+import { API_URL, getAuthHeaders } from '../utils/api';
 import './MealDistribution.css';
 import ProfessionalLayout from '../professional/ProfessionalLayout';
 
@@ -49,14 +49,13 @@ const MealDistribution = () => {
   const fetchMeals = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
       let url = `${API_URL}/meals?date=${selectedDate}`;
       if (selectedMealType !== 'all') {
         url += `&mealType=${selectedMealType}`;
       }
 
       const response = await fetch(url, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: getAuthHeaders()
       });
 
       const result = await response.json();
@@ -73,9 +72,8 @@ const MealDistribution = () => {
 
   const fetchStats = async () => {
     try {
-      const token = localStorage.getItem('token');
       const response = await fetch(`${API_URL}/meals/stats/daily?date=${selectedDate}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: getAuthHeaders()
       });
 
       const result = await response.json();
@@ -89,9 +87,8 @@ const MealDistribution = () => {
 
   const fetchBeneficiaries = async () => {
     try {
-      const token = localStorage.getItem('token');
       const response = await fetch(`${API_URL}/beneficiaries`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: getAuthHeaders()
       });
 
       const result = await response.json();
@@ -114,15 +111,11 @@ const MealDistribution = () => {
     setLoading(true);
 
     try {
-      const token = localStorage.getItem('token');
       const menuItemsArray = newMeal.menuItems.split(',').map(item => item.trim()).filter(item => item);
 
       const response = await fetch(`${API_URL}/meals`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           ...newMeal,
           menuItems: menuItemsArray,

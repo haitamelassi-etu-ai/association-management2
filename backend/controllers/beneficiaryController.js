@@ -1,11 +1,61 @@
 const Beneficiary = require('../models/Beneficiary');
 const Distribution = require('../models/Distribution');
 const FoodStock = require('../models/FoodStock');
+const Room = require('../models/Room');
 const AuditLog = require('../models/AuditLog');
 const Announcement = require('../models/Announcement');
 const User = require('../models/User');
 const { notifyAdmins, notificationTemplates } = require('../utils/notificationHelper');
+const { logAudit } = require('../utils/auditLogger');
 const XLSX = require('xlsx');
+
+const getAssociationId = (req) => req.user?.association?._id || req.user?.association;
+
+const getBeneficiaryScope = (req) => {
+  const associationId = getAssociationId(req);
+  if (!associationId) return {};
+
+  return {
+    $or: [
+      { association: associationId },
+      { association: { $exists: false } },
+      { association: null }
+    ]
+  };
+};
+
+const buildBeneficiaryQuery = (req, filters = {}) => {
+  const scope = getBeneficiaryScope(req);
+  if (!Object.keys(scope).length) return filters;
+  if (filters.$or) return { $and: [scope, filters] };
+  return { ...filters, ...scope };
+};
+
+const releaseBeneficiaryRooms = async (beneficiaryId, dateSortie = new Date()) => {
+  const rooms = await Room.find({
+    'occupants.beneficiaire': beneficiaryId,
+    'occupants.dateSortie': { $exists: false }
+  });
+
+  for (const room of rooms) {
+    room.occupants.forEach((occupant) => {
+      if (occupant.beneficiaire?.toString() === beneficiaryId.toString() && !occupant.dateSortie) {
+        occupant.dateSortie = dateSortie;
+      }
+    });
+
+    const activeOccupants = room.occupants.filter((occupant) => !occupant.dateSortie).length;
+    if (!['maintenance', 'hors_service'].includes(room.status)) {
+      room.status = activeOccupants === 0
+        ? 'disponible'
+        : activeOccupants < room.capacite
+          ? 'partielle'
+          : 'occupee';
+    }
+
+    await room.save();
+  }
+};
 
 // @desc    Get all beneficiaries
 // @route   GET /api/beneficiaries
@@ -31,6 +81,8 @@ exports.getBeneficiaries = async (req, res) => {
         { lieuIntervention: { $regex: search, $options: 'i' } }
       ];
     }
+
+    query = buildBeneficiaryQuery(req, query);
     
     let queryBuilder = Beneficiary.find(query)
       .populate('createdBy', 'nom prenom')
@@ -64,7 +116,7 @@ exports.getBeneficiaries = async (req, res) => {
 // @access  Private
 exports.getBeneficiary = async (req, res) => {
   try {
-    const beneficiary = await Beneficiary.findById(req.params.id)
+    const beneficiary = await Beneficiary.findOne(buildBeneficiaryQuery(req, { _id: req.params.id }))
       .populate('createdBy', 'nom prenom email')
       .populate('updatedBy', 'nom prenom email')
       .populate('caseWorker', 'nom prenom email')
@@ -97,6 +149,7 @@ exports.getBeneficiary = async (req, res) => {
 exports.createBeneficiary = async (req, res) => {
   try {
     req.body.createdBy = req.user._id;
+    req.body.association = getAssociationId(req);
     
     const beneficiary = await Beneficiary.create(req.body);
 
@@ -105,6 +158,20 @@ exports.createBeneficiary = async (req, res) => {
       ...notificationTemplates.newBeneficiary(beneficiaryName),
       metadata: { beneficiaryId: beneficiary._id, action: 'create' },
       createdBy: req.user._id
+    });
+
+    await logAudit({
+      user: req.user,
+      action: 'create',
+      resource: 'beneficiary',
+      resourceId: beneficiary._id,
+      details: {
+        label: beneficiaryName,
+        numeroOrdre: beneficiary.numeroOrdre,
+        statut: beneficiary.statut
+      },
+      newValues: beneficiary.toObject(),
+      req
     });
     
     res.status(201).json({ success: true, data: beneficiary });
@@ -119,10 +186,24 @@ exports.createBeneficiary = async (req, res) => {
 exports.updateBeneficiary = async (req, res) => {
   try {
     req.body.updatedBy = req.user._id;
-    const before = await Beneficiary.findById(req.params.id).select('statut nom prenom');
+    delete req.body.association;
 
-    const beneficiary = await Beneficiary.findByIdAndUpdate(
-      req.params.id,
+    if (req.body.statut === 'sorti') {
+      req.body.dateSortie = req.body.dateSortie || new Date();
+      req.body.isHoused = false;
+      req.body.roomNumber = '';
+      req.body.bedNumber = '';
+      if (!req.body.maBaadAlIwaa || req.body.maBaadAlIwaa === 'nazil_bilmarkaz') {
+        req.body.maBaadAlIwaa = 'mughAdara';
+      }
+    }
+
+    const scopedQuery = buildBeneficiaryQuery(req, { _id: req.params.id });
+    const before = await Beneficiary.findOne(scopedQuery)
+      .select('statut nom prenom maBaadAlIwaa dateSortie isHoused roomNumber bedNumber');
+
+    const beneficiary = await Beneficiary.findOneAndUpdate(
+      scopedQuery,
       req.body,
       { new: true, runValidators: true }
     );
@@ -132,6 +213,8 @@ exports.updateBeneficiary = async (req, res) => {
     }
 
     if (before?.statut !== 'sorti' && beneficiary.statut === 'sorti') {
+      await releaseBeneficiaryRooms(beneficiary._id, beneficiary.dateSortie || new Date());
+
       const beneficiaryName = `${beneficiary.prenom || ''} ${beneficiary.nom || ''}`.trim();
       await notifyAdmins({
         ...notificationTemplates.beneficiaryExit(beneficiaryName),
@@ -139,6 +222,29 @@ exports.updateBeneficiary = async (req, res) => {
         createdBy: req.user._id
       });
     }
+
+    const beneficiaryName = `${beneficiary.prenom || ''} ${beneficiary.nom || ''}`.trim();
+    await logAudit({
+      user: req.user,
+      action: before?.statut !== 'sorti' && beneficiary.statut === 'sorti' ? 'exit_recorded' : 'update',
+      resource: 'beneficiary',
+      resourceId: beneficiary._id,
+      details: {
+        label: beneficiaryName,
+        statut: beneficiary.statut,
+        changedFields: Object.keys(req.body).filter((key) => key !== 'updatedBy')
+      },
+      previousValues: before?.toObject(),
+      newValues: {
+        statut: beneficiary.statut,
+        maBaadAlIwaa: beneficiary.maBaadAlIwaa,
+        dateSortie: beneficiary.dateSortie,
+        isHoused: beneficiary.isHoused,
+        roomNumber: beneficiary.roomNumber,
+        bedNumber: beneficiary.bedNumber
+      },
+      req
+    });
     
     res.status(200).json({ success: true, data: beneficiary });
   } catch (error) {
@@ -151,12 +257,25 @@ exports.updateBeneficiary = async (req, res) => {
 // @access  Private/Admin
 exports.deleteBeneficiary = async (req, res) => {
   try {
-    const beneficiary = await Beneficiary.findByIdAndDelete(req.params.id);
+    const beneficiary = await Beneficiary.findOneAndDelete(buildBeneficiaryQuery(req, { _id: req.params.id }));
     if (!beneficiary) {
       return res.status(404).json({ success: false, message: 'Bénéficiaire non trouvé' });
     }
     // Also delete related distributions
     await Distribution.deleteMany({ beneficiary: req.params.id });
+    await logAudit({
+      user: req.user,
+      action: 'delete',
+      resource: 'beneficiary',
+      resourceId: beneficiary._id,
+      details: {
+        label: `${beneficiary.prenom || ''} ${beneficiary.nom || ''}`.trim(),
+        deletedDistributions: true
+      },
+      previousValues: beneficiary.toObject(),
+      req
+    });
+
     res.status(200).json({ success: true, message: 'Bénéficiaire supprimé avec succès' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -168,7 +287,7 @@ exports.deleteBeneficiary = async (req, res) => {
 // @access  Private
 exports.addSuiviSocial = async (req, res) => {
   try {
-    const beneficiary = await Beneficiary.findById(req.params.id);
+    const beneficiary = await Beneficiary.findOne(buildBeneficiaryQuery(req, { _id: req.params.id }));
     if (!beneficiary) {
       return res.status(404).json({ success: false, message: 'Bénéficiaire non trouvé' });
     }
@@ -180,6 +299,21 @@ exports.addSuiviSocial = async (req, res) => {
     });
     
     await beneficiary.save();
+
+    await logAudit({
+      user: req.user,
+      action: 'update',
+      resource: 'beneficiary',
+      resourceId: beneficiary._id,
+      details: {
+        operation: 'suivi_social',
+        label: `${beneficiary.prenom || ''} ${beneficiary.nom || ''}`.trim(),
+        type: req.body.type || 'entretien'
+      },
+      newValues: beneficiary.suiviSocial[beneficiary.suiviSocial.length - 1],
+      req
+    });
+
     res.status(200).json({ success: true, data: beneficiary });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -191,46 +325,52 @@ exports.addSuiviSocial = async (req, res) => {
 // @access  Private
 exports.getStats = async (req, res) => {
   try {
-    const total = await Beneficiary.countDocuments();
-    const heberge = await Beneficiary.countDocuments({ statut: 'heberge' });
-    const sorti = await Beneficiary.countDocuments({ statut: 'sorti' });
-    const enSuivi = await Beneficiary.countDocuments({ statut: 'en_suivi' });
-    const transfere = await Beneficiary.countDocuments({ statut: 'transfere' });
+    const scoped = (filters = {}) => buildBeneficiaryQuery(req, filters);
+
+    const total = await Beneficiary.countDocuments(scoped());
+    const heberge = await Beneficiary.countDocuments(scoped({ statut: 'heberge' }));
+    const sorti = await Beneficiary.countDocuments(scoped({ statut: 'sorti' }));
+    const enSuivi = await Beneficiary.countDocuments(scoped({ statut: 'en_suivi' }));
+    const transfere = await Beneficiary.countDocuments(scoped({ statut: 'transfere' }));
     
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
-    const nouveauxCeMois = await Beneficiary.countDocuments({ dateEntree: { $gte: startOfMonth } });
+    const beneficiaryIds = await Beneficiary.distinct('_id', scoped());
+    const nouveauxCeMois = await Beneficiary.countDocuments(scoped({ dateEntree: { $gte: startOfMonth } }));
 
     // Gender stats
-    const hommes = await Beneficiary.countDocuments({ sexe: 'homme' });
-    const femmes = await Beneficiary.countDocuments({ sexe: 'femme' });
+    const hommes = await Beneficiary.countDocuments(scoped({ sexe: 'homme' }));
+    const femmes = await Beneficiary.countDocuments(scoped({ sexe: 'femme' }));
 
     // Needs stats
-    const besoinsAlimentaire = await Beneficiary.countDocuments({ 'besoins.alimentaire': true, statut: 'heberge' });
-    const besoinsHygiene = await Beneficiary.countDocuments({ 'besoins.hygiene': true, statut: 'heberge' });
-    const besoinsMedical = await Beneficiary.countDocuments({ 'besoins.medical': true, statut: 'heberge' });
-    const besoinsVestimentaire = await Beneficiary.countDocuments({ 'besoins.vestimentaire': true, statut: 'heberge' });
-    const besoinsPsychologique = await Beneficiary.countDocuments({ 'besoins.psychologique': true, statut: 'heberge' });
+    const besoinsAlimentaire = await Beneficiary.countDocuments(scoped({ 'besoins.alimentaire': true, statut: 'heberge' }));
+    const besoinsHygiene = await Beneficiary.countDocuments(scoped({ 'besoins.hygiene': true, statut: 'heberge' }));
+    const besoinsMedical = await Beneficiary.countDocuments(scoped({ 'besoins.medical': true, statut: 'heberge' }));
+    const besoinsVestimentaire = await Beneficiary.countDocuments(scoped({ 'besoins.vestimentaire': true, statut: 'heberge' }));
+    const besoinsPsychologique = await Beneficiary.countDocuments(scoped({ 'besoins.psychologique': true, statut: 'heberge' }));
 
     // Situation type stats
     const situationStats = await Beneficiary.aggregate([
-      { $match: { statut: 'heberge' } },
+      { $match: scoped({ statut: 'heberge' }) },
       { $group: { _id: '$situationType', count: { $sum: 1 } } }
     ]);
 
     // Post-accommodation stats
     const maBaadStats = await Beneficiary.aggregate([
-      { $match: { maBaadAlIwaa: { $ne: null, $ne: '' } } },
+      { $match: scoped({ maBaadAlIwaa: { $ne: null, $ne: '' } }) },
       { $group: { _id: '$maBaadAlIwaa', count: { $sum: 1 } } }
     ]);
 
     // Distribution stats this month
-    const distributionsCeMois = await Distribution.countDocuments({ date: { $gte: startOfMonth } });
+    const distributionsCeMois = await Distribution.countDocuments({
+      beneficiary: { $in: beneficiaryIds },
+      date: { $gte: startOfMonth }
+    });
 
     // ── Health breakdown (for mini chart) ──
     const healthStats = await Beneficiary.aggregate([
-      { $match: { etatSante: { $ne: null, $ne: '' } } },
+      { $match: scoped({ etatSante: { $ne: null, $ne: '' } }) },
       { $group: { _id: '$etatSante', count: { $sum: 1 } } },
       { $sort: { count: -1 } },
       { $limit: 6 }
@@ -238,7 +378,7 @@ exports.getStats = async (req, res) => {
 
     // ── Lieu intervention breakdown ──
     const lieuStats = await Beneficiary.aggregate([
-      { $match: { lieuIntervention: { $ne: null, $ne: '' } } },
+      { $match: scoped({ lieuIntervention: { $ne: null, $ne: '' } }) },
       { $group: { _id: '$lieuIntervention', count: { $sum: 1 } } },
       { $sort: { count: -1 } },
       { $limit: 5 }
@@ -248,7 +388,7 @@ exports.getStats = async (req, res) => {
     const twelveMonthsAgo = new Date();
     twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
     const monthlyTrend = await Beneficiary.aggregate([
-      { $match: { dateEntree: { $gte: twelveMonthsAgo } } },
+      { $match: scoped({ dateEntree: { $gte: twelveMonthsAgo } }) },
       { $group: { _id: { $dateToString: { format: '%Y-%m', date: '$dateEntree' } }, count: { $sum: 1 } } },
       { $sort: { _id: 1 } }
     ]);
@@ -256,7 +396,7 @@ exports.getStats = async (req, res) => {
     // ── Recent activities from AuditLog ──
     let recentActivities = [];
     try {
-      recentActivities = await AuditLog.find({})
+      recentActivities = await AuditLog.find(scoped())
         .sort({ timestamp: -1 })
         .limit(8)
         .populate('user', 'nom prenom')
@@ -280,14 +420,14 @@ exports.getStats = async (req, res) => {
     } catch (e) { /* empty */ }
 
     // ── Recent 5 beneficiaries ──
-    const recentBeneficiaries = await Beneficiary.find({})
+    const recentBeneficiaries = await Beneficiary.find(scoped())
       .sort({ dateEntree: -1 })
       .limit(5)
       .select('nom prenom numeroOrdre dateEntree statut etatSante')
       .lean();
 
     // Sortis ce mois
-    const sortisCeMois = await Beneficiary.countDocuments({ dateSortie: { $gte: startOfMonth } });
+    const sortisCeMois = await Beneficiary.countDocuments(scoped({ dateSortie: { $gte: startOfMonth } }));
 
     res.status(200).json({
       success: true,
@@ -520,6 +660,7 @@ exports.importFromExcel = async (req, res) => {
         }
 
         mapped.createdBy = req.user._id;
+        mapped.association = getAssociationId(req);
         mapped.dateEntree = mapped.dateEntree || new Date();
 
         await Beneficiary.create(mapped);
@@ -529,6 +670,18 @@ exports.importFromExcel = async (req, res) => {
         results.skipped++;
       }
     }
+
+    await logAudit({
+      user: req.user,
+      action: 'import',
+      resource: 'beneficiary',
+      details: {
+        imported: results.imported,
+        skipped: results.skipped,
+        errors: results.errors.slice(0, 10)
+      },
+      req
+    });
 
     res.status(200).json({
       success: true,
@@ -545,7 +698,7 @@ exports.importFromExcel = async (req, res) => {
 // @access  Private
 exports.addDistribution = async (req, res) => {
   try {
-    const beneficiary = await Beneficiary.findById(req.params.id);
+    const beneficiary = await Beneficiary.findOne(buildBeneficiaryQuery(req, { _id: req.params.id }));
     if (!beneficiary) {
       return res.status(404).json({ success: false, message: 'Bénéficiaire non trouvé' });
     }
@@ -558,7 +711,10 @@ exports.addDistribution = async (req, res) => {
     // Deduct from stock if linkedStockItem is provided
     for (const item of items) {
       if (item.linkedStockItem) {
-        const stockItem = await FoodStock.findById(item.linkedStockItem);
+        const stockItem = await FoodStock.findOne({
+          _id: item.linkedStockItem,
+          association: req.user?.association?._id || req.user?.association
+        });
         if (stockItem) {
           if (stockItem.quantite < item.quantite) {
             return res.status(400).json({
@@ -593,6 +749,21 @@ exports.addDistribution = async (req, res) => {
 
     await distribution.populate('distributedBy', 'nom prenom');
 
+    await logAudit({
+      user: req.user,
+      action: 'update',
+      resource: 'beneficiary',
+      resourceId: beneficiary._id,
+      details: {
+        operation: 'distribution',
+        type,
+        itemCount: items.length,
+        label: `${beneficiary.prenom || ''} ${beneficiary.nom || ''}`.trim()
+      },
+      newValues: distribution.toObject(),
+      req
+    });
+
     res.status(201).json({ success: true, data: distribution });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -604,6 +775,11 @@ exports.addDistribution = async (req, res) => {
 // @access  Private
 exports.getDistributions = async (req, res) => {
   try {
+    const beneficiary = await Beneficiary.findOne(buildBeneficiaryQuery(req, { _id: req.params.id })).select('_id');
+    if (!beneficiary) {
+      return res.status(404).json({ success: false, message: 'Bénéficiaire non trouvé' });
+    }
+
     const distributions = await Distribution.find({ beneficiary: req.params.id })
       .populate('distributedBy', 'nom prenom')
       .populate('items.linkedStockItem', 'nom categorie unite')
@@ -629,6 +805,9 @@ exports.getAllDistributions = async (req, res) => {
       if (startDate) query.date.$gte = new Date(startDate);
       if (endDate) query.date.$lte = new Date(endDate);
     }
+
+    const beneficiaryIds = await Beneficiary.distinct('_id', buildBeneficiaryQuery(req));
+    query.beneficiary = { $in: beneficiaryIds };
 
     const distributions = await Distribution.find(query)
       .populate('beneficiary', 'nom prenom cin')

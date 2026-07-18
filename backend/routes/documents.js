@@ -11,7 +11,7 @@ const uploadsDir = upload.uploadsDir || path.join(__dirname, '../uploads/benefic
 // @desc    Upload document for beneficiary
 // @route   POST /api/documents/beneficiary/:id
 // @access  Private (Admin, Manager, Staff)
-router.post('/beneficiary/:id', protect, authorize('admin', 'manager', 'staff'), upload.single('document'), async (req, res) => {
+router.post('/beneficiary/:id', protect, authorize('admin', 'responsable', 'staff'), upload.single('document'), async (req, res) => {
   try {
     const { id } = req.params;
     const { type, description } = req.body;
@@ -77,7 +77,7 @@ router.post('/beneficiary/:id', protect, authorize('admin', 'manager', 'staff'),
 // @desc    Get documents for beneficiary
 // @route   GET /api/documents/beneficiary/:id
 // @access  Private (Admin, Manager, Staff)
-router.get('/beneficiary/:id', protect, authorize('admin', 'manager', 'staff'), async (req, res) => {
+router.get('/beneficiary/:id', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -107,7 +107,7 @@ router.get('/beneficiary/:id', protect, authorize('admin', 'manager', 'staff'), 
 // @desc    Delete document
 // @route   DELETE /api/documents/beneficiary/:id/document/:documentId
 // @access  Private (Admin, Manager)
-router.delete('/beneficiary/:id/document/:documentId', protect, authorize('admin', 'manager'), async (req, res) => {
+router.delete('/beneficiary/:id/document/:documentId', protect, authorize('admin', 'responsable'), async (req, res) => {
   try {
     const { id, documentId } = req.params;
 

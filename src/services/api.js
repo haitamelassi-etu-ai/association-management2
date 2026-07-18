@@ -1,19 +1,5 @@
 import axios from 'axios'
-
-// API Base URL - Use environment variable in production
-const getAPIBaseURL = () => {
-  // Check if running locally
-  const hostname = window.location.hostname
-  if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return 'http://localhost:5000'
-  }
-  
-  // Use same origin for Vercel (Frontend + Backend together)
-  return window.location.origin
-}
-
-const API_BASE_URL = getAPIBaseURL()
-const API_URL = `${API_BASE_URL}/api`
+import { API_BASE_URL, API_URL, getAuthToken } from '../utils/api'
 
 console.log('🔧 API Configuration:', { 
   hostname: window.location.hostname, 
@@ -35,16 +21,9 @@ const api = axios.create({
 
 // Add token to requests
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('professionalToken')
-  const user = localStorage.getItem('professionalUser')
-  
+  const token = getAuthToken()
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
-  } else if (user) {
-    const userData = JSON.parse(user)
-    if (userData.token) {
-      config.headers.Authorization = `Bearer ${userData.token}`
-    }
   }
   
   console.log('API Request:', config.url, 'Token:', config.headers.Authorization ? 'Present' : 'Missing')
@@ -75,12 +54,7 @@ export const beneficiariesAPI = {
   // Distributions
   getDistributions: (id) => api.get(`/beneficiaries/${id}/distributions`),
   addDistribution: (id, data) => api.post(`/beneficiaries/${id}/distributions`, data),
-  getAllDistributions: (params) => api.get('/beneficiaries/distributions/all', { params }),
-  // Photo
-  uploadPhoto: (id, formData) => api.put(`/beneficiaries/${id}/photo`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  }),
-  deletePhoto: (id) => api.delete(`/beneficiaries/${id}/photo`)
+  getAllDistributions: (params) => api.get('/beneficiaries/distributions/all', { params })
 }
 
 // Announcements API
@@ -105,6 +79,31 @@ export const usersAPI = {
   create: (data) => api.post('/auth/register', data),
   update: (id, data) => api.put(`/users/${id}`, data),
   delete: (id) => api.delete(`/users/${id}`)
+}
+
+// Associations API (Admin + current association)
+export const associationsAPI = {
+  getMe: () => api.get('/associations/me'),
+  getAll: () => api.get('/associations'),
+  create: (data) => api.post('/associations', data),
+  update: (id, data) => api.put(`/associations/${id}`, data)
+}
+
+// Transport API
+export const transportAPI = {
+  getVehicles: (params) => api.get('/transport/vehicles', { params }),
+  createVehicle: (data) => api.post('/transport/vehicles', data),
+  updateVehicle: (id, data) => api.put(`/transport/vehicles/${id}`, data),
+  deleteVehicle: (id) => api.delete(`/transport/vehicles/${id}`),
+  getMaintenance: (params) => api.get('/transport/maintenance', { params }),
+  createMaintenance: (data) => api.post('/transport/maintenance', data),
+  updateMaintenance: (id, data) => api.put(`/transport/maintenance/${id}`, data),
+  deleteMaintenance: (id) => api.delete(`/transport/maintenance/${id}`),
+  getIncidents: (params) => api.get('/transport/incidents', { params }),
+  createIncident: (data) => api.post('/transport/incidents', data),
+  updateIncident: (id, data) => api.put(`/transport/incidents/${id}`, data),
+  resolveIncident: (id) => api.patch(`/transport/incidents/${id}/resolve`),
+  deleteIncident: (id) => api.delete(`/transport/incidents/${id}`)
 }
 
 export default api

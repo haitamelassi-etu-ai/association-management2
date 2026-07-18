@@ -4,7 +4,7 @@ const Room = require('../models/Room');
 const { protect, authorize } = require('../middleware/auth');
 
 // Get all rooms
-router.get('/', protect, async (req, res) => {
+router.get('/', protect, authorize('admin', 'responsable'), async (req, res) => {
   try {
     const { status, etage, type } = req.query;
     let query = {};
@@ -24,7 +24,7 @@ router.get('/', protect, async (req, res) => {
 });
 
 // Get room stats
-router.get('/stats', protect, async (req, res) => {
+router.get('/stats', protect, authorize('admin', 'responsable'), async (req, res) => {
   try {
     const rooms = await Room.find().populate('occupants.beneficiaire', 'nom prenom');
 
@@ -77,7 +77,7 @@ router.post('/', protect, authorize('admin', 'responsable'), async (req, res) =>
 });
 
 // Update a room
-router.put('/:id', protect, async (req, res) => {
+router.put('/:id', protect, authorize('admin', 'responsable'), async (req, res) => {
   try {
     const room = await Room.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
@@ -94,7 +94,7 @@ router.put('/:id', protect, async (req, res) => {
 });
 
 // Assign a beneficiary to a room
-router.post('/:id/assign', protect, async (req, res) => {
+router.post('/:id/assign', protect, authorize('admin', 'responsable'), async (req, res) => {
   try {
     const room = await Room.findById(req.params.id);
     if (!room) {
@@ -129,7 +129,7 @@ router.post('/:id/assign', protect, async (req, res) => {
 });
 
 // Remove a beneficiary from a room
-router.post('/:id/remove', protect, async (req, res) => {
+router.post('/:id/remove', protect, authorize('admin', 'responsable'), async (req, res) => {
   try {
     const room = await Room.findById(req.params.id);
     if (!room) {

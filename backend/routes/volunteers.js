@@ -4,7 +4,7 @@ const Volunteer = require('../models/Volunteer');
 const { protect, authorize } = require('../middleware/auth');
 
 // Get all volunteers
-router.get('/', protect, async (req, res) => {
+router.get('/', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const { status, search, competence } = req.query;
     let query = {};
@@ -30,7 +30,7 @@ router.get('/', protect, async (req, res) => {
 });
 
 // Get volunteer stats
-router.get('/stats', protect, async (req, res) => {
+router.get('/stats', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const [actifs, inactifs, enAttente, totalHeures] = await Promise.all([
       Volunteer.countDocuments({ status: 'actif' }),
@@ -55,7 +55,7 @@ router.get('/stats', protect, async (req, res) => {
 });
 
 // Add a volunteer
-router.post('/', protect, async (req, res) => {
+router.post('/', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const volunteer = await Volunteer.create({
       ...req.body,
@@ -68,7 +68,7 @@ router.post('/', protect, async (req, res) => {
 });
 
 // Update a volunteer
-router.put('/:id', protect, async (req, res) => {
+router.put('/:id', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const volunteer = await Volunteer.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
@@ -84,7 +84,7 @@ router.put('/:id', protect, async (req, res) => {
 });
 
 // Add a task to a volunteer
-router.post('/:id/tasks', protect, async (req, res) => {
+router.post('/:id/tasks', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const volunteer = await Volunteer.findById(req.params.id);
     if (!volunteer) {
@@ -101,7 +101,7 @@ router.post('/:id/tasks', protect, async (req, res) => {
 });
 
 // Update task status & log hours
-router.put('/:id/tasks/:taskId', protect, async (req, res) => {
+router.put('/:id/tasks/:taskId', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const volunteer = await Volunteer.findById(req.params.id);
     if (!volunteer) {

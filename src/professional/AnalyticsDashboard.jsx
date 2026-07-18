@@ -7,14 +7,16 @@ import {
 } from 'recharts';
 import { jsPDF } from 'jspdf';
 import { API_URL } from '../utils/api';
+import { CHART_COLORS, CHART_TOKENS } from '../utils/chartTheme';
 import './AnalyticsDashboard.css';
 
+// On-brand palettes — warm gold/sage/terracotta scale for charts.
 const PALETTE = {
-  primary: ['#0ea5e9', '#06b6d4', '#14b8a6', '#10b981', '#22c55e', '#84cc16'],
-  maBaad: ['#06b6d4', '#f59e0b', '#22c55e', '#ef4444', '#a855f7', '#64748b'],
-  health: ['#22c55e', '#ef4444', '#f59e0b', '#a855f7', '#06b6d4', '#ec4899', '#64748b', '#0ea5e9', '#14b8a6', '#e11d48'],
-  age: ['#06b6d4', '#0ea5e9', '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#64748b'],
-  lieu: ['#0ea5e9', '#14b8a6', '#f59e0b', '#ef4444', '#8b5cf6', '#64748b'],
+  primary: ['#caa24a', '#a0805a', '#d4924a', '#1f6d3b', '#5b8068', '#7a6f5e'],
+  maBaad:  ['#caa24a', '#a0805a', '#1f6d3b', '#b82920', '#7a6f5e', '#25231f'],
+  health:  ['#1f6d3b', '#b82920', '#caa24a', '#a0805a', '#5b8068', '#d4924a', '#7a6f5e', '#25231f', '#8a7e69', '#9b3a32'],
+  age:     ['#f0d489', '#caa24a', '#a0805a', '#7a6f5e', '#5b8068', '#1f6d3b', '#25231f', '#8a7e69'],
+  lieu:    ['#caa24a', '#1f6d3b', '#d4924a', '#b82920', '#a0805a', '#7a6f5e'],
 };
 
 const RADIAN = Math.PI / 180;
@@ -25,7 +27,7 @@ const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent
   const x = cx + radius * Math.cos(-midAngle * RADIAN);
   const y = cy + radius * Math.sin(-midAngle * RADIAN);
   return (
-    <text x={x} y={y} fill="#374151" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize={12} fontWeight={500}>
+    <text x={x} y={y} fill={CHART_TOKENS.charcoal} textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize={12} fontWeight={500}>
       {name} ({(percent * 100).toFixed(0)}%)
     </text>
   );
@@ -388,8 +390,8 @@ function AnalyticsDashboard() {
                   <PieChart>
                     <Pie data={cin} cx="50%" cy="50%" outerRadius={90} innerRadius={40} dataKey="value"
                       label={renderCustomLabel} labelLine={false}>
-                      <Cell fill="#22c55e" />
-                      <Cell fill="#ef4444" />
+                      <Cell fill={CHART_TOKENS.sage} />
+                      <Cell fill={CHART_TOKENS.terracotta} />
                     </Pie>
                     <Tooltip content={<CustomTooltip />} />
                   </PieChart>
@@ -400,13 +402,13 @@ function AnalyticsDashboard() {
                 <div className="chart-header"><h3>📈 الدخول مقابل الخروج حسب السنة</h3></div>
                 <ResponsiveContainer width="100%" height={280}>
                   <BarChart data={entryVsExit} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis dataKey="name" stroke="#6b7280" fontSize={12} />
-                    <YAxis stroke="#6b7280" fontSize={12} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={CHART_TOKENS.grid} />
+                    <XAxis dataKey="name" stroke={CHART_TOKENS.axis} fontSize={12} />
+                    <YAxis stroke={CHART_TOKENS.axis} fontSize={12} />
                     <Tooltip content={<CustomTooltip />} />
                     <Legend />
-                    <Bar dataKey="entries" name="الدخول" fill="#0ea5e9" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="exits" name="الخروج" fill="#f97316" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="entries" name="الدخول" fill={CHART_TOKENS.gold} radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="exits" name="الخروج" fill={CHART_TOKENS.terracotta} radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -424,9 +426,9 @@ function AnalyticsDashboard() {
                 <div className="chart-header"><h3>🎂 التوزيع حسب الفئات العمرية</h3></div>
                 <ResponsiveContainer width="100%" height={350}>
                   <BarChart data={age} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis dataKey="name" stroke="#6b7280" fontSize={13} />
-                    <YAxis stroke="#6b7280" fontSize={12} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={CHART_TOKENS.grid} />
+                    <XAxis dataKey="name" stroke={CHART_TOKENS.axis} fontSize={13} />
+                    <YAxis stroke={CHART_TOKENS.axis} fontSize={12} />
                     <Tooltip content={<CustomTooltip />} />
                     <Bar dataKey="value" name="العدد" radius={[6, 6, 0, 0]}>
                       {age.map((_, i) => <Cell key={i} fill={PALETTE.age[i % PALETTE.age.length]} />)}
@@ -462,11 +464,11 @@ function AnalyticsDashboard() {
                 <div className="chart-header"><h3>⏱️ مدة الإقامة</h3></div>
                 <ResponsiveContainer width="100%" height={320}>
                   <BarChart data={stayDuration} layout="vertical" margin={{ top: 10, right: 30, left: 80, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis type="number" stroke="#6b7280" fontSize={12} />
-                    <YAxis type="category" dataKey="name" stroke="#6b7280" fontSize={12} width={80} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={CHART_TOKENS.grid} />
+                    <XAxis type="number" stroke={CHART_TOKENS.axis} fontSize={12} />
+                    <YAxis type="category" dataKey="name" stroke={CHART_TOKENS.axis} fontSize={12} width={80} />
                     <Tooltip content={<CustomTooltip />} />
-                    <Bar dataKey="value" name="العدد" fill="#8b5cf6" radius={[0, 6, 6, 0]} />
+                    <Bar dataKey="value" name="العدد" fill={CHART_TOKENS.goldDeep} radius={[0, 6, 6, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -484,9 +486,9 @@ function AnalyticsDashboard() {
                 <div className="chart-header"><h3>🏠 مابعد الايواء - تفصيل</h3></div>
                 <ResponsiveContainer width="100%" height={350}>
                   <BarChart data={maBaad} layout="vertical" margin={{ top: 10, right: 30, left: 100, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis type="number" stroke="#6b7280" fontSize={12} />
-                    <YAxis type="category" dataKey="name" stroke="#6b7280" fontSize={13} width={100} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={CHART_TOKENS.grid} />
+                    <XAxis type="number" stroke={CHART_TOKENS.axis} fontSize={12} />
+                    <YAxis type="category" dataKey="name" stroke={CHART_TOKENS.axis} fontSize={13} width={100} />
                     <Tooltip content={<CustomTooltip />} />
                     <Bar dataKey="value" name="العدد" radius={[0, 6, 6, 0]}>
                       {maBaad.map((_, i) => <Cell key={i} fill={PALETTE.maBaad[i % PALETTE.maBaad.length]} />)}
@@ -499,9 +501,9 @@ function AnalyticsDashboard() {
                 <div className="chart-header"><h3>📋 نوع الوضعية - تفصيل</h3></div>
                 <ResponsiveContainer width="100%" height={350}>
                   <BarChart data={situation} layout="vertical" margin={{ top: 10, right: 30, left: 120, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis type="number" stroke="#6b7280" fontSize={12} />
-                    <YAxis type="category" dataKey="name" stroke="#6b7280" fontSize={13} width={120} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={CHART_TOKENS.grid} />
+                    <XAxis type="number" stroke={CHART_TOKENS.axis} fontSize={12} />
+                    <YAxis type="category" dataKey="name" stroke={CHART_TOKENS.axis} fontSize={13} width={120} />
                     <Tooltip content={<CustomTooltip />} />
                     <Bar dataKey="value" name="العدد" radius={[0, 6, 6, 0]}>
                       {situation.map((_, i) => <Cell key={i} fill={PALETTE.primary[i % PALETTE.primary.length]} />)}
@@ -538,9 +540,9 @@ function AnalyticsDashboard() {
                 <div className="chart-header"><h3>🏥 توزيع الحالة الصحية</h3></div>
                 <ResponsiveContainer width="100%" height={400}>
                   <BarChart data={health} layout="vertical" margin={{ top: 10, right: 30, left: 120, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis type="number" stroke="#6b7280" fontSize={12} />
-                    <YAxis type="category" dataKey="name" stroke="#6b7280" fontSize={13} width={120} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={CHART_TOKENS.grid} />
+                    <XAxis type="number" stroke={CHART_TOKENS.axis} fontSize={12} />
+                    <YAxis type="category" dataKey="name" stroke={CHART_TOKENS.axis} fontSize={13} width={120} />
                     <Tooltip content={<CustomTooltip />} />
                     <Bar dataKey="value" name="العدد" radius={[0, 6, 6, 0]}>
                       {health.map((_, i) => <Cell key={i} fill={PALETTE.health[i % PALETTE.health.length]} />)}
@@ -600,9 +602,9 @@ function AnalyticsDashboard() {
                 <div className="chart-header"><h3>🗺️ مكان التدخل</h3></div>
                 <ResponsiveContainer width="100%" height={350}>
                   <BarChart data={lieuIntervention} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis dataKey="name" stroke="#6b7280" fontSize={12} />
-                    <YAxis stroke="#6b7280" fontSize={12} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={CHART_TOKENS.grid} />
+                    <XAxis dataKey="name" stroke={CHART_TOKENS.axis} fontSize={12} />
+                    <YAxis stroke={CHART_TOKENS.axis} fontSize={12} />
                     <Tooltip content={<CustomTooltip />} />
                     <Bar dataKey="value" name="العدد" radius={[6, 6, 0, 0]}>
                       {lieuIntervention.map((_, i) => <Cell key={i} fill={PALETTE.lieu[i % PALETTE.lieu.length]} />)}
@@ -624,11 +626,11 @@ function AnalyticsDashboard() {
                 <div className="chart-header"><h3>🏛️ الجهة الموجهة</h3></div>
                 <ResponsiveContainer width="100%" height={350}>
                   <BarChart data={entiteOrientatrice} layout="vertical" margin={{ top: 10, right: 30, left: 140, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis type="number" stroke="#6b7280" fontSize={12} />
-                    <YAxis type="category" dataKey="name" stroke="#6b7280" fontSize={12} width={140} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={CHART_TOKENS.grid} />
+                    <XAxis type="number" stroke={CHART_TOKENS.axis} fontSize={12} />
+                    <YAxis type="category" dataKey="name" stroke={CHART_TOKENS.axis} fontSize={12} width={140} />
                     <Tooltip content={<CustomTooltip />} />
-                    <Bar dataKey="value" name="العدد" fill="#0ea5e9" radius={[0, 6, 6, 0]} />
+                    <Bar dataKey="value" name="العدد" fill={CHART_TOKENS.gold} radius={[0, 6, 6, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -639,11 +641,11 @@ function AnalyticsDashboard() {
                 <div className="chart-header"><h3>🏙️ أهم مدن الازدياد (أعلى 20)</h3></div>
                 <ResponsiveContainer width="100%" height={400}>
                   <BarChart data={birthPlace} layout="vertical" margin={{ top: 10, right: 30, left: 120, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis type="number" stroke="#6b7280" fontSize={12} />
-                    <YAxis type="category" dataKey="name" stroke="#6b7280" fontSize={12} width={120} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={CHART_TOKENS.grid} />
+                    <XAxis type="number" stroke={CHART_TOKENS.axis} fontSize={12} />
+                    <YAxis type="category" dataKey="name" stroke={CHART_TOKENS.axis} fontSize={12} width={120} />
                     <Tooltip content={<CustomTooltip />} />
-                    <Bar dataKey="value" name="العدد" fill="#14b8a6" radius={[0, 6, 6, 0]} />
+                    <Bar dataKey="value" name="العدد" fill={CHART_TOKENS.sageSoft} radius={[0, 6, 6, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -667,11 +669,11 @@ function AnalyticsDashboard() {
                         <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0.05} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis dataKey="name" stroke="#6b7280" fontSize={12} />
-                    <YAxis stroke="#6b7280" fontSize={12} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={CHART_TOKENS.grid} />
+                    <XAxis dataKey="name" stroke={CHART_TOKENS.axis} fontSize={12} />
+                    <YAxis stroke={CHART_TOKENS.axis} fontSize={12} />
                     <Tooltip content={<CustomTooltip />} />
-                    <Area type="monotone" dataKey="value" name="الدخول" stroke="#0ea5e9" strokeWidth={3}
+                    <Area type="monotone" dataKey="value" name="الدخول" stroke={CHART_TOKENS.gold} strokeWidth={3}
                       fill="url(#colorEntry)" dot={{ fill: '#0ea5e9', r: 4 }} activeDot={{ r: 6 }} />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -683,13 +685,13 @@ function AnalyticsDashboard() {
                 <div className="chart-header"><h3>📊 الدخول مقابل الخروج حسب السنة</h3></div>
                 <ResponsiveContainer width="100%" height={350}>
                   <BarChart data={entryVsExit} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis dataKey="name" stroke="#6b7280" fontSize={13} />
-                    <YAxis stroke="#6b7280" fontSize={12} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={CHART_TOKENS.grid} />
+                    <XAxis dataKey="name" stroke={CHART_TOKENS.axis} fontSize={13} />
+                    <YAxis stroke={CHART_TOKENS.axis} fontSize={12} />
                     <Tooltip content={<CustomTooltip />} />
                     <Legend />
-                    <Bar dataKey="entries" name="الدخول" fill="#0ea5e9" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="exits" name="الخروج" fill="#f97316" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="entries" name="الدخول" fill={CHART_TOKENS.gold} radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="exits" name="الخروج" fill={CHART_TOKENS.terracotta} radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -707,11 +709,11 @@ function AnalyticsDashboard() {
                           <stop offset="95%" stopColor="#22c55e" stopOpacity={0.05} />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                      <XAxis dataKey="name" stroke="#6b7280" fontSize={11} angle={-25} textAnchor="end" height={60} />
-                      <YAxis stroke="#6b7280" fontSize={12} />
+                      <CartesianGrid strokeDasharray="3 3" stroke={CHART_TOKENS.grid} />
+                      <XAxis dataKey="name" stroke={CHART_TOKENS.axis} fontSize={11} angle={-25} textAnchor="end" height={60} />
+                      <YAxis stroke={CHART_TOKENS.axis} fontSize={12} />
                       <Tooltip content={<CustomTooltip />} />
-                      <Area type="monotone" dataKey="value" name="الدخول" stroke="#22c55e" strokeWidth={2}
+                      <Area type="monotone" dataKey="value" name="الدخول" stroke={CHART_TOKENS.sage} strokeWidth={2}
                         fill="url(#colorMonthly)" dot={{ fill: '#22c55e', r: 3 }} />
                     </AreaChart>
                   </ResponsiveContainer>
@@ -730,11 +732,11 @@ function AnalyticsDashboard() {
                         <stop offset="95%" stopColor="#f97316" stopOpacity={0.05} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis dataKey="name" stroke="#6b7280" fontSize={12} />
-                    <YAxis stroke="#6b7280" fontSize={12} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={CHART_TOKENS.grid} />
+                    <XAxis dataKey="name" stroke={CHART_TOKENS.axis} fontSize={12} />
+                    <YAxis stroke={CHART_TOKENS.axis} fontSize={12} />
                     <Tooltip content={<CustomTooltip />} />
-                    <Area type="monotone" dataKey="value" name="الخروج" stroke="#f97316" strokeWidth={2}
+                    <Area type="monotone" dataKey="value" name="الخروج" stroke={CHART_TOKENS.terracotta} strokeWidth={2}
                       fill="url(#colorDepart)" dot={{ fill: '#f97316', r: 4 }} />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -744,11 +746,11 @@ function AnalyticsDashboard() {
                 <div className="chart-header"><h3>⏱️ مدة الإقامة</h3></div>
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={stayDuration} layout="vertical" margin={{ top: 10, right: 30, left: 80, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis type="number" stroke="#6b7280" fontSize={12} />
-                    <YAxis type="category" dataKey="name" stroke="#6b7280" fontSize={12} width={80} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={CHART_TOKENS.grid} />
+                    <XAxis type="number" stroke={CHART_TOKENS.axis} fontSize={12} />
+                    <YAxis type="category" dataKey="name" stroke={CHART_TOKENS.axis} fontSize={12} width={80} />
                     <Tooltip content={<CustomTooltip />} />
-                    <Bar dataKey="value" name="العدد" fill="#8b5cf6" radius={[0, 6, 6, 0]} />
+                    <Bar dataKey="value" name="العدد" fill={CHART_TOKENS.goldDeep} radius={[0, 6, 6, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>

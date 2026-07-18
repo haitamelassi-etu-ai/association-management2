@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
+import { API_URL, getAuthHeaders } from '../utils/api'
 import './Integrations.css'
 
 function Integrations() {
@@ -12,14 +13,11 @@ function Integrations() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState({ type: '', text: '' })
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
-
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const token = localStorage.getItem('professionalToken')
-        const response = await fetch(`${API_URL}/api/settings/integrations`, {
-          headers: { 'Authorization': `Bearer ${token}` }
+        const response = await fetch(`${API_URL}/settings/integrations`, {
+          headers: getAuthHeaders()
         })
         const data = await response.json()
         if (data.success) {
@@ -185,13 +183,9 @@ function Integrations() {
   const saveIntegrationSettings = async () => {
     setLoading(true)
     try {
-      const token = localStorage.getItem('professionalToken')
-      await fetch(`${API_URL}/api/settings/integrations`, {
+      await fetch(`${API_URL}/settings/integrations`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(integrations)
       })
       setMessage({ type: 'success', text: 'Paramètres sauvegardés' })

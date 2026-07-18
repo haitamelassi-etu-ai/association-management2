@@ -12,7 +12,7 @@ const { logAudit } = require('../utils/auditLogger');
 // @access  Protected
 router.post('/setup', protect, async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
+    const user = await User.findById(req.user._id).select('+twoFactorTempSecret');
 
     if (user.twoFactorEnabled) {
       return res.status(400).json({
@@ -56,7 +56,7 @@ router.post('/setup', protect, async (req, res) => {
 router.post('/verify', protect, async (req, res) => {
   try {
     const { token } = req.body;
-    const user = await User.findById(req.user._id);
+    const user = await User.findById(req.user._id).select('+twoFactorTempSecret +twoFactorSecret +twoFactorBackupCodes.code');
 
     if (!user.twoFactorTempSecret) {
       return res.status(400).json({
@@ -125,7 +125,7 @@ router.post('/verify', protect, async (req, res) => {
 router.post('/disable', protect, async (req, res) => {
   try {
     const { token, password } = req.body;
-    const user = await User.findById(req.user._id).select('+password');
+    const user = await User.findById(req.user._id).select('+password +twoFactorSecret +twoFactorBackupCodes.code');
 
     // Verify password
     const isMatch = await user.comparePassword(password);
@@ -186,7 +186,7 @@ router.post('/disable', protect, async (req, res) => {
 router.post('/validate', async (req, res) => {
   try {
     const { userId, token } = req.body;
-    const user = await User.findById(userId);
+    const user = await User.findById(userId).select('+twoFactorSecret +twoFactorBackupCodes.code');
 
     if (!user || !user.twoFactorEnabled) {
       return res.status(400).json({
@@ -242,7 +242,7 @@ router.post('/validate', async (req, res) => {
 router.get('/backup-codes', protect, async (req, res) => {
   try {
     const { token } = req.query;
-    const user = await User.findById(req.user._id);
+    const user = await User.findById(req.user._id).select('+twoFactorSecret +twoFactorBackupCodes.code');
 
     if (!user.twoFactorEnabled) {
       return res.status(400).json({

@@ -11,6 +11,7 @@ dotenv.config();
 
 // Import routes
 const authRoutes = require('./routes/auth');
+const associationsRoutes = require('./routes/associations');
 const userRoutes = require('./routes/users');
 const beneficiaryRoutes = require('./routes/beneficiaries');
 const announcementRoutes = require('./routes/announcements');
@@ -34,6 +35,14 @@ const roomRoutes = require('./routes/rooms');
 const healthRecordRoutes = require('./routes/healthRecords');
 const communicationRoutes = require('./routes/communications');
 const aiRoutes = require('./routes/ai');
+const transportRoutes = require('./routes/transport');
+const approvalsRoutes = require('./routes/approvals');
+const auditLogRoutes = require('./routes/auditLogs');
+const savedViewsRoutes = require('./routes/savedViews');
+const schedulesRoutes = require('./routes/schedules');
+const settingsRoutes = require('./routes/settings');
+const ticketsRoutes = require('./routes/tickets');
+const twoFactorRoutes = require('./routes/twoFactor');
 const app = express();
 const server = http.createServer(app);
 
@@ -90,6 +99,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/associations', associationsRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/beneficiaries', beneficiaryRoutes);
 app.use('/api/announcements', announcementRoutes);
@@ -113,6 +123,14 @@ app.use('/api/rooms', roomRoutes);
 app.use('/api/health-records', healthRecordRoutes);
 app.use('/api/communications', communicationRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/transport', transportRoutes);
+app.use('/api/approvals', approvalsRoutes);
+app.use('/api/audit-logs', auditLogRoutes);
+app.use('/api/saved-views', savedViewsRoutes);
+app.use('/api/schedules', schedulesRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/api/tickets', ticketsRoutes);
+app.use('/api/2fa', twoFactorRoutes);
 
 // Serve uploaded files
 app.use('/uploads', express.static('uploads'));

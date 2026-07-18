@@ -4,7 +4,7 @@ const Visitor = require('../models/Visitor');
 const { protect, authorize } = require('../middleware/auth');
 
 // Get all visitors (with filters)
-router.get('/', protect, async (req, res) => {
+router.get('/', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const { status, date, beneficiaire, search } = req.query;
     let query = {};
@@ -39,7 +39,7 @@ router.get('/', protect, async (req, res) => {
 });
 
 // Get visitor stats
-router.get('/stats', protect, async (req, res) => {
+router.get('/stats', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -65,7 +65,7 @@ router.get('/stats', protect, async (req, res) => {
 });
 
 // Sign in a visitor
-router.post('/', protect, async (req, res) => {
+router.post('/', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const visitor = await Visitor.create({
       ...req.body,
@@ -85,7 +85,7 @@ router.post('/', protect, async (req, res) => {
 });
 
 // Sign out a visitor
-router.put('/:id/signout', protect, async (req, res) => {
+router.put('/:id/signout', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const visitor = await Visitor.findByIdAndUpdate(
       req.params.id,
@@ -104,7 +104,7 @@ router.put('/:id/signout', protect, async (req, res) => {
 });
 
 // Update a visitor
-router.put('/:id', protect, async (req, res) => {
+router.put('/:id', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const visitor = await Visitor.findByIdAndUpdate(req.params.id, req.body, { new: true })
       .populate('beneficiaire', 'nom prenom');

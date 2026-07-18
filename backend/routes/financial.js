@@ -4,7 +4,7 @@ const Financial = require('../models/Financial');
 const { protect, authorize } = require('../middleware/auth');
 
 // Get all transactions
-router.get('/', protect, async (req, res) => {
+router.get('/', protect, authorize('admin', 'responsable'), async (req, res) => {
   try {
     const { type, categorie, dateFrom, dateTo, search } = req.query;
     let query = {};
@@ -37,7 +37,7 @@ router.get('/', protect, async (req, res) => {
 });
 
 // Get financial stats/summary
-router.get('/stats', protect, async (req, res) => {
+router.get('/stats', protect, authorize('admin', 'responsable'), async (req, res) => {
   try {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -93,7 +93,7 @@ router.get('/stats', protect, async (req, res) => {
 });
 
 // Add a transaction
-router.post('/', protect, async (req, res) => {
+router.post('/', protect, authorize('admin', 'responsable'), async (req, res) => {
   try {
     const transaction = await Financial.create({
       ...req.body,
@@ -107,7 +107,7 @@ router.post('/', protect, async (req, res) => {
 });
 
 // Update a transaction
-router.put('/:id', protect, async (req, res) => {
+router.put('/:id', protect, authorize('admin', 'responsable'), async (req, res) => {
   try {
     const transaction = await Financial.findByIdAndUpdate(req.params.id, req.body, {
       new: true,

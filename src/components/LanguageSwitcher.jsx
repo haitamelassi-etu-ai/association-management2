@@ -1,15 +1,15 @@
-import React from 'react';
+import { Check, ChevronDown, Globe2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import './LanguageSwitcher.css';
 
-const LanguageSwitcher = () => {
-  const { i18n, t } = useTranslation();
+const languages = [
+  { code: 'fr', name: 'Français', short: 'FR', dir: 'ltr' },
+  { code: 'ar', name: 'العربية', short: 'AR', dir: 'rtl' },
+  { code: 'en', name: 'English', short: 'EN', dir: 'ltr' }
+];
 
-  const languages = [
-    { code: 'ar', name: 'العربية', flag: '🇲🇦', dir: 'rtl' },
-    { code: 'fr', name: 'Français', flag: '🇫🇷', dir: 'ltr' },
-    { code: 'en', name: 'English', flag: '🇬🇧', dir: 'ltr' }
-  ];
+const LanguageSwitcher = () => {
+  const { i18n } = useTranslation();
 
   const changeLanguage = (langCode, direction) => {
     i18n.changeLanguage(langCode);
@@ -18,14 +18,14 @@ const LanguageSwitcher = () => {
     document.documentElement.setAttribute('lang', langCode);
   };
 
-  const currentLang = languages.find(lang => lang.code === i18n.language) || languages[0];
+  const currentLang = languages.find((lang) => lang.code === i18n.language) || languages[0];
 
   return (
     <div className="language-switcher">
-      <button className="lang-button" title={t('language.selectLanguage')}>
-        <span className="lang-flag">{currentLang.flag}</span>
-        <span className="lang-code">{currentLang.code.toUpperCase()}</span>
-        <i className="fas fa-chevron-down"></i>
+      <button className="lang-button" title="Changer la langue" type="button">
+        <Globe2 size={16} />
+        <span className="lang-code">{currentLang.short}</span>
+        <ChevronDown size={14} />
       </button>
       <div className="lang-dropdown">
         {languages.map((lang) => (
@@ -33,12 +33,11 @@ const LanguageSwitcher = () => {
             key={lang.code}
             className={`lang-option ${i18n.language === lang.code ? 'active' : ''}`}
             onClick={() => changeLanguage(lang.code, lang.dir)}
+            type="button"
           >
-            <span className="lang-flag">{lang.flag}</span>
+            <span className="lang-code">{lang.short}</span>
             <span className="lang-name">{lang.name}</span>
-            {i18n.language === lang.code && (
-              <i className="fas fa-check"></i>
-            )}
+            {i18n.language === lang.code && <Check size={15} />}
           </button>
         ))}
       </div>

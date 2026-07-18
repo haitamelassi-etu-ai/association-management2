@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
+import { API_URL, getAuthHeaders } from '../utils/api'
 import './TicketSystem.css'
 
 function TicketSystem() {
@@ -48,11 +49,10 @@ function TicketSystem() {
   const fetchTickets = async () => {
     setLoading(true)
     try {
-      const token = localStorage.getItem('professionalToken')
       const status = activeTab === 'all' ? '' : activeTab
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/tickets?status=${status}`,
-        { headers: { 'Authorization': `Bearer ${token}` } }
+        `${API_URL}/tickets?status=${status}`,
+        { headers: getAuthHeaders() }
       )
       const data = await response.json()
       if (data.success) {
@@ -67,15 +67,11 @@ function TicketSystem() {
 
   const handleCreateTicket = async () => {
     try {
-      const token = localStorage.getItem('professionalToken')
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/tickets`,
+        `${API_URL}/tickets`,
         {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
+          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify(formData)
         }
       )
@@ -99,15 +95,11 @@ function TicketSystem() {
     if (!newMessage.trim()) return
 
     try {
-      const token = localStorage.getItem('professionalToken')
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/tickets/${selectedTicket._id}/messages`,
+        `${API_URL}/tickets/${selectedTicket._id}/messages`,
         {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
+          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({ content: newMessage })
         }
       )
@@ -123,15 +115,11 @@ function TicketSystem() {
 
   const handleUpdateStatus = async (ticketId, status) => {
     try {
-      const token = localStorage.getItem('professionalToken')
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/tickets/${ticketId}/status`,
+        `${API_URL}/tickets/${ticketId}/status`,
         {
           method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
+          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({ status })
         }
       )

@@ -1,5 +1,13 @@
 const AuditLog = require('../models/AuditLog');
 
+const getAssociationId = (user, req) => (
+  user?.association?._id ||
+  user?.association ||
+  req?.user?.association?._id ||
+  req?.user?.association ||
+  null
+);
+
 /**
  * Log an audit event
  * @param {Object} options - Audit log options
@@ -19,6 +27,7 @@ const logAudit = async (options) => {
       action,
       resource,
       resourceId,
+      association,
       details,
       previousValues,
       newValues,
@@ -27,6 +36,7 @@ const logAudit = async (options) => {
 
     await AuditLog.create({
       user: user?._id || user,
+      association: association || getAssociationId(user, req),
       action,
       resource,
       resourceId,

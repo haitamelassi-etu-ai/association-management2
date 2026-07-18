@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { API_URL } from '../utils/api';
+import { API_URL, getAuthToken } from '../utils/api';
 import ProfessionalLayout from '../professional/ProfessionalLayout';
 import { BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import './FinancialTracker.css';
 
-const COLORS = ['#27ae60', '#e74c3c', '#3498db', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#2980b9'];
+const COLORS = ['#1f6d3b', '#b82920', '#caa24a', '#a0805a', '#d4924a', '#5b8068', '#7a6f5e', '#25231f'];
 const categorieLabels = {
   don: 'Dons', subvention: 'Subventions', cotisation: 'Cotisations', vente: 'Ventes', autre_revenu: 'Autre revenu',
   salaires: 'Salaires', loyer: 'Loyer', nourriture: 'Nourriture', medicaments: 'Médicaments',
@@ -32,7 +32,7 @@ const FinancialTracker = () => {
   const getToken = () => {
     const pu = localStorage.getItem('professionalUser');
     if (pu) return JSON.parse(pu).token;
-    return localStorage.getItem('token');
+    return getAuthToken();
   };
 
   const headers = { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' };
@@ -273,8 +273,8 @@ const FinancialTracker = () => {
                       <YAxis />
                       <Tooltip formatter={v => formatMoney(v)} />
                       <Legend />
-                      <Bar dataKey="revenu" fill="#27ae60" name="Revenus" radius={[4,4,0,0]} />
-                      <Bar dataKey="depense" fill="#e74c3c" name="Dépenses" radius={[4,4,0,0]} />
+                      <Bar dataKey="revenu" fill="#1f6d3b" name="Revenus" radius={[4,4,0,0]} />
+                      <Bar dataKey="depense" fill="#b82920" name="Dépenses" radius={[4,4,0,0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>

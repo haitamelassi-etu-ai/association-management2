@@ -1,10 +1,14 @@
 const mongoose = require('mongoose');
 
 const foodStockSchema = new mongoose.Schema({
+  association: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Association',
+    required: true,
+    index: true
+  },
   barcode: {
     type: String,
-    unique: true,
-    sparse: true,
     trim: true
   },
   nom: {
@@ -108,35 +112,33 @@ const foodStockSchema = new mongoose.Schema({
 });
 
 // Index composé pour les recherches fréquentes
-foodStockSchema.index({ statut: 1, dateExpiration: 1 });
-foodStockSchema.index({ categorie: 1, statut: 1 });
+foodStockSchema.index({ association: 1, barcode: 1 }, { unique: true, sparse: true });
+foodStockSchema.index({ association: 1, statut: 1, dateExpiration: 1 });
+foodStockSchema.index({ association: 1, categorie: 1, statut: 1 });
+
+const computeFoodStockStatus = (quantite, seuilCritique, dateExpiration) => {
+  const maintenant = new Date();
+
+  if (dateExpiration) {
+    const joursRestants = Math.ceil((dateExpiration - maintenant) / (1000 * 60 * 60 * 24));
+    if (joursRestants <= 0) return 'expire';
+  }
+
+  if (quantite <= seuilCritique) return 'critique';
+  if (quantite <= (seuilCritique * 1.5)) return 'faible';
+  return 'disponible';
+};
+
+foodStockSchema.methods.recalculateStatus = function() {
+  this.statut = computeFoodStockStatus(this.quantite, this.seuilCritique, this.dateExpiration);
+  return this.statut;
+};
+
+foodStockSchema.statics.computeStatus = computeFoodStockStatus;
 
 // Hook pre-save pour calculer automatiquement le statut
 foodStockSchema.pre('save', function(next) {
-  const maintenant = new Date();
-  
-  // Check expiration only if dateExpiration is set
-  if (this.dateExpiration) {
-    const joursRestants = Math.ceil((this.dateExpiration - maintenant) / (1000 * 60 * 60 * 24));
-    if (joursRestants <= 0) {
-      this.statut = 'expire';
-      return next();
-    }
-  }
-  
-  // Vérifier si quantité critique
-  if (this.quantite <= this.seuilCritique) {
-    this.statut = 'critique';
-  }
-  // Vérifier si quantité faible (50% du seuil critique)
-  else if (this.quantite <= (this.seuilCritique * 1.5)) {
-    this.statut = 'faible';
-  }
-  // Sinon disponible
-  else {
-    this.statut = 'disponible';
-  }
-  
+  this.recalculateStatus();
   next();
 });
 
@@ -155,30 +157,50 @@ foodStockSchema.methods.getJoursRestants = function() {
 
 // Méthode pour enregistrer une consommation
 foodStockSchema.methods.enregistrerConsommation = function(quantite, utilisateur, raison = '') {
-  this.quantite -= quantite;
+  const quantiteDemandee = Number(quantite);
+  if (!quantiteDemandee || quantiteDemandee <= 0) {
+    throw new Error('La quantite doit etre superieure a 0');
+  }
+  if (quantiteDemandee > this.quantite) {
+    throw new Error('Quantite demandee superieure au stock disponible');
+  }
+
+  this.quantite -= quantiteDemandee;
   
   this.historique.push({
     action: 'consommation',
-    quantite: quantite,
+    quantite: quantiteDemandee,
     quantiteRestante: this.quantite,
     utilisateur: utilisateur,
     notes: raison
   });
+
+  this.recalculateStatus();
 };
 
 // Méthode pour enregistrer une sortie
 foodStockSchema.methods.enregistrerSortie = function(quantite, utilisateur, typeSortie, destination = '', raison = '') {
-  this.quantite -= quantite;
+  const quantiteDemandee = Number(quantite);
+  if (!quantiteDemandee || quantiteDemandee <= 0) {
+    throw new Error('La quantite doit etre superieure a 0');
+  }
+  if (quantiteDemandee > this.quantite) {
+    throw new Error('Quantite demandee superieure au stock disponible');
+  }
+
+  this.quantite -= quantiteDemandee;
   
   this.historique.push({
     action: 'sortie',
-    quantite: quantite,
+    quantite: quantiteDemandee,
     quantiteRestante: this.quantite,
     utilisateur: utilisateur,
     typeSortie: typeSortie,
     destination: destination,
     notes: raison
   });
+
+  this.recalculateStatus();
 };
 
 const FoodStock = mongoose.model('FoodStock', foodStockSchema);

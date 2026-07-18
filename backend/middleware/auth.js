@@ -1,5 +1,8 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { getOrCreateDefaultAssociation } = require('../utils/associationHelper');
+
+const normalizeRole = (role) => (role === 'manager' ? 'responsable' : role);
 
 // Protect routes
 exports.protect = async (req, res, next) => {
@@ -10,28 +13,39 @@ exports.protect = async (req, res, next) => {
   }
 
   if (!token) {
-    return res.status(401).json({ 
-      success: false, 
-      message: 'Non autorisé - Token manquant' 
+    return res.status(401).json({
+      success: false,
+      message: 'Non autorise - Token manquant'
     });
   }
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = await User.findById(decoded.id).select('-password');
-    
-    if (!req.user || !req.user.isActive) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Utilisateur non trouvé ou inactif' 
+    let user = await User.findById(decoded.id)
+      .select('-password')
+      .populate('association');
+
+    if (!user || !user.isActive) {
+      return res.status(401).json({
+        success: false,
+        message: 'Utilisateur non trouve ou inactif'
       });
     }
-    
+
+    if (!user.association) {
+      const defaultAssociation = await getOrCreateDefaultAssociation();
+      await User.findByIdAndUpdate(user._id, { association: defaultAssociation._id });
+      user = await User.findById(user._id)
+        .select('-password')
+        .populate('association');
+    }
+
+    req.user = user;
     next();
   } catch (error) {
-    return res.status(401).json({ 
-      success: false, 
-      message: 'Non autorisé - Token invalide' 
+    return res.status(401).json({
+      success: false,
+      message: 'Non autorise - Token invalide'
     });
   }
 };
@@ -39,10 +53,13 @@ exports.protect = async (req, res, next) => {
 // Authorize roles
 exports.authorize = (...roles) => {
   return (req, res, next) => {
-    if (!roles.includes(req.user.role)) {
+    const allowedRoles = roles.map(normalizeRole);
+    const userRole = normalizeRole(req.user.role);
+
+    if (!allowedRoles.includes(userRole)) {
       return res.status(403).json({
         success: false,
-        message: `Role ${req.user.role} n'est pas autorisé à accéder à cette route`
+        message: `Role ${req.user.role} non autorise pour cette action`
       });
     }
     next();

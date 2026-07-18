@@ -142,7 +142,7 @@ router.get('/:id', protect, async (req, res) => {
 });
 
 // Create new exit log
-router.post('/', protect, authorize('admin', 'staff'), async (req, res) => {
+router.post('/', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const {
       beneficiaryId,
@@ -224,7 +224,7 @@ router.post('/', protect, authorize('admin', 'staff'), async (req, res) => {
 });
 
 // Record return
-router.patch('/:id/return', protect, authorize('admin', 'staff'), async (req, res) => {
+router.patch('/:id/return', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const { returnNotes } = req.body;
 
@@ -280,7 +280,7 @@ router.patch('/:id/return', protect, authorize('admin', 'staff'), async (req, re
 });
 
 // Update exit log
-router.put('/:id', protect, authorize('admin', 'staff'), async (req, res) => {
+router.put('/:id', protect, authorize('admin', 'responsable', 'staff'), async (req, res) => {
   try {
     const updates = { ...req.body };
     delete updates.beneficiary; // Can't change beneficiary
