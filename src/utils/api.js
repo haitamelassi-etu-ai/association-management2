@@ -2,10 +2,12 @@
  * Get API URL - works on both desktop and mobile.
  * Automatically detects the current hostname and uses it with port 5000.
  */
+/**
+ * Get API URL - works on both desktop and mobile.
+ */
 export const getApiUrl = () => {
-  // In dev, allow overriding the API base URL (useful for phone testing on LAN).
-  // Example: VITE_API_URL=http://192.168.x.x:5000
-  if (import.meta?.env?.DEV && import.meta?.env?.VITE_API_URL) {
+  // استخدام المتغير في الإنتاج والتطوير معاً
+  if (import.meta?.env?.VITE_API_URL) {
     const raw = String(import.meta.env.VITE_API_URL).trim();
     if (raw) {
       return raw.replace(/\/+$/, '');
@@ -19,8 +21,8 @@ export const getApiUrl = () => {
     return 'http://localhost:5000';
   }
 
-  console.log('Using same-origin API:', window.location.origin);
-  return window.location.origin;
+  // رابط الباكند على Vercel كخيار افتراضي مباشر
+  return 'https://association-management2.vercel.app';
 };
 
 export const API_BASE_URL = getApiUrl();
